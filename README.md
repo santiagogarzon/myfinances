@@ -1,89 +1,81 @@
-# MyFinances - Investment Portfolio Tracker
+# MyFinances
 
-A React Native mobile application built with Expo that helps users track their investments in stocks, ETFs, and cryptocurrencies.
+A React Native mobile application for tracking investments and managing your portfolio. Built with Expo, React Native, and Zustand.
 
 ## Features
 
-- Track stocks, ETFs, and cryptocurrencies in one place
-- Real-time price updates from Yahoo Finance (stocks/ETFs) and CoinGecko (crypto)
-- Add and remove assets with quantity tracking
-- View total portfolio value and individual asset values
-- Dark mode support
-- Offline data persistence
-- Pull-to-refresh for price updates
-- Toast notifications for user feedback
+- Track stocks, cryptocurrencies, ETFs, and cash holdings
+- Real-time price updates
+- Portfolio distribution visualization
+- Currency conversion for cash holdings
+- Secure authentication
+- Offline support with AsyncStorage
 
 ## Tech Stack
 
-- Expo with React Native
-- TypeScript for type safety
-- Zustand for state management
-- TanStack Query (React Query) for data fetching
-- React Hook Form for form management
-- FlashList for efficient list rendering
-- NativeWind (Tailwind CSS) for styling
-- AsyncStorage for local data persistence
+- React Native
+- Expo
+- Zustand (State Management)
+- React Navigation
+- React Native Chart Kit
+- AsyncStorage
+- OpenExchangeRates API
+- Yahoo Finance API
+- CoinGecko API
 
 ## Prerequisites
 
-- Node.js 18 or higher
+- Node.js (v18 or higher)
 - npm or yarn
 - Expo CLI
-- iOS Simulator (for Mac) or Android Emulator
+- iOS Simulator (for iOS development)
+- Android Studio (for Android development)
 
 ## Installation
 
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
-cd MyFinances
+git clone https://github.com/santiagogarzon/myfinances.git
+cd myfinances
 ```
 
 2. Install dependencies:
 
 ```bash
 npm install
+# or
+yarn install
 ```
 
 3. Start the development server:
 
 ```bash
-npm start
+npx expo start
 ```
 
-4. Run on iOS or Android:
+## Environment Setup
+
+1. Create a `.env` file in the root directory
+2. Add your API keys:
+
+```
+OPEN_EXCHANGE_RATES_APP_ID=your_app_id_here
+```
+
+## Building for Production
+
+### iOS
 
 ```bash
-# For iOS
-npm run ios
-
-# For Android
-npm run android
+eas build --platform ios
 ```
 
-## Project Structure
+### Android
 
+```bash
+eas build --platform android
 ```
-src/
-  ├── components/     # Reusable UI components
-  ├── screens/        # Screen components
-  ├── hooks/          # Custom React hooks
-  ├── store/          # Zustand store
-  ├── services/       # API services
-  ├── types/          # TypeScript types
-  ├── utils/          # Utility functions
-  └── constants/      # Constants and configuration
-```
-
-## API Integration
-
-The app uses two main APIs:
-
-- Yahoo Finance API for stocks and ETFs
-- CoinGecko API for cryptocurrencies
-
-Note: These are free APIs with rate limits. For production use, consider using paid API keys.
 
 ## Contributing
 
@@ -95,4 +87,10 @@ Note: These are free APIs with rate limits. For production use, consider using p
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+Santiago Garzon - [@santiagogarzon](https://github.com/santiagogarzon)
+
+Project Link: [https://github.com/santiagogarzon/myfinances](https://github.com/santiagogarzon/myfinances)
