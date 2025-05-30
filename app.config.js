@@ -23,6 +23,7 @@ export default ({ config }) => {
       supportsTablet: true,
       bundleIdentifier: "com.santiagogarzon.myfinances",
       buildNumber: "1",
+      teamId: "T99AVZG4HX",
       infoPlist: {
         NSFaceIDUsageDescription:
           "We use Face ID to secure your financial data",
@@ -31,10 +32,15 @@ export default ({ config }) => {
         NSPhotoLibraryUsageDescription:
           "We need photo library access to import financial documents",
         UIBackgroundModes: ["fetch", "remote-notification"],
+        LSApplicationQueriesSchemes: ["itms-apps"],
       },
       config: {
         usesNonExemptEncryption: false,
       },
+      appStoreUrl: "https://apps.apple.com/app/myfinances/idYOUR_APP_ID",
+      marketingUrl: "https://github.com/santiagogarzon/myfinances",
+      privacyPolicyUrl:
+        "https://github.com/santiagogarzon/myfinances/blob/main/PRIVACY.md",
     },
     android: {
       package: "com.santiagogarzon.myfinances",
@@ -49,6 +55,19 @@ export default ({ config }) => {
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
       ],
+      playStoreUrl:
+        "https://play.google.com/store/apps/details?id=com.santiagogarzon.myfinances",
+      intentFilters: [
+        {
+          action: "VIEW",
+          data: [
+            {
+              scheme: "myfinances",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     extra: {
       eas: {
@@ -59,7 +78,7 @@ export default ({ config }) => {
     privacy: "unlisted",
     description:
       "Track your investments and manage your portfolio with ease. Monitor stocks, cryptocurrencies, ETFs, and cash holdings in one place.",
-    githubUrl: "https://github.com/yourusername/myfinances",
+    githubUrl: "https://github.com/santiagogarzon/myfinances",
     primaryColor: "#000000",
     web: {
       favicon: "./src/assets/logo.png",
