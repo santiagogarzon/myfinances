@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true
+        "resourceClass": "m-medium"
       },
       "env": {
         "APP_ENV": "development"
@@ -17,7 +17,8 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "resourceClass": "m-medium",
+        "image": "macos-sonoma-14.6-xcode-16.1"
       },
       "android": {
         "buildType": "apk"
@@ -30,15 +31,16 @@
       "autoIncrement": true,
       "env": {
         "APP_ENV": "production"
-      }
+      },
+      "distribution": "store",
     }
   },
   "submit": {
     "production": {
       "ios": {
         "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-store-connect-app-id",
-        "appleTeamId": "your-apple-team-id"
+        "ascAppId": "6746658180",
+        "appleTeamId": "T99AVZG4HX"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",

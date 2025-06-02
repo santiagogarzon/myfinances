@@ -1,7 +1,11 @@
 import React from "react";
-import { View, Text, Dimensions, StyleSheet } from "react-native";
+import { View, Text, Dimensions } from "react-native";
 import { PieChart } from "react-native-chart-kit";
 import { Asset, AssetType } from "../types";
+import { styled } from "nativewind";
+
+const StyledView = styled(View);
+const StyledText = styled(Text);
 
 interface PortfolioChartProps {
   assets: Asset[];
@@ -34,10 +38,34 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
   const screenWidth = Dimensions.get("window").width;
   const chartHeight = 180;
 
+  // Early return if no assets
+  if (!assets || assets.length === 0) {
+    return (
+      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 text-center">
+          Add assets to see portfolio distribution
+        </StyledText>
+      </StyledView>
+    );
+  }
+
   // Calculate total value by type
   const typeTotals = assets.reduce((acc, asset) => {
+    if (
+      !asset ||
+      !asset.type ||
+      typeof asset.quantity !== "number" ||
+      typeof asset.currentPrice !== "number"
+    ) {
+      console.warn("Invalid asset data:", asset);
+      return acc;
+    }
     const type = asset.type;
     const value = asset.quantity * asset.currentPrice;
+    if (isNaN(value) || !isFinite(value)) {
+      console.warn("Invalid value calculated for asset:", asset);
+      return acc;
+    }
     acc[type] = (acc[type] || 0) + value;
     return acc;
   }, {} as Record<AssetType, number>);
@@ -45,17 +73,42 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
   // Calculate total sum of all values
   const total = Object.values(typeTotals).reduce((sum, v) => sum + v, 0);
 
+  // If total is 0 or invalid, show message
+  if (!total || isNaN(total) || !isFinite(total)) {
+    return (
+      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 text-center">
+          Unable to calculate portfolio distribution
+        </StyledText>
+      </StyledView>
+    );
+  }
+
   // Prepare chart data with percentage for chart and legend
   const chartData: ChartData[] = Object.entries(typeTotals)
     .filter(([_, value]) => value > 0)
-    .map(([type, value]) => ({
-      name: capitalize(type),
-      value,
-      color: COLORS[type as AssetType],
-      legendFontColor: "#7F7F7F",
-      legendFontSize: 12,
-      percentage: total > 0 ? (value / total) * 100 : 0,
-    }));
+    .map(([type, value]) => {
+      const percentage = total > 0 ? (value / total) * 100 : 0;
+      return {
+        name: capitalize(type),
+        value,
+        color: COLORS[type as AssetType] || "#CCCCCC", // Fallback color if type is unknown
+        legendFontColor: "#7F7F7F",
+        legendFontSize: 12,
+        percentage,
+      };
+    });
+
+  // If no valid chart data, show message
+  if (chartData.length === 0) {
+    return (
+      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 text-center">
+          No valid assets to display
+        </StyledText>
+      </StyledView>
+    );
+  }
 
   // Prepare data specifically for the PieChart component
   const pieChartData = chartData.map((item) => ({
@@ -66,20 +119,9 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
     legendFontSize: item.legendFontSize,
   }));
 
-  if (chartData.length === 0) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.noAssetsText}>
-          Add assets to see portfolio distribution
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Portfolio Distribution</Text>
-      <View style={styles.chartContainer}>
+    <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
+      <StyledView className="flex-row items-center justify-center">
         <PieChart
           data={pieChartData}
           width={screenWidth * 0.5}
@@ -93,21 +135,22 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
           avoidFalseZero
         />
         {/* Custom Legend */}
-        <View style={styles.legendContainer}>
+        <StyledView className="flex-1 mr-2">
           {chartData.map((item, index) => (
-            <View key={index} style={styles.legendItem}>
-              <View
-                style={[styles.legendColorDot, { backgroundColor: item.color }]}
+            <StyledView key={index} className="flex-row items-center mb-1.5">
+              <StyledView
+                className="w-2.5 h-2.5 rounded-full mr-2"
+                style={{ backgroundColor: item.color }}
               />
-              <Text style={styles.legendText}>
+              <StyledText className="text-sm text-gray-700 dark:text-gray-300">
                 {item.name} — {formatCurrency(item.value)} (
                 {item.percentage.toFixed(1)}%)
-              </Text>
-            </View>
+              </StyledText>
+            </StyledView>
           ))}
-        </View>
-      </View>
-    </View>
+        </StyledView>
+      </StyledView>
+    </StyledView>
   );
 };
 
@@ -117,51 +160,3 @@ const chartConfig = {
   backgroundGradientTo: "#ffffff",
   color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 16,
-  },
-  noAssetsText: {
-    textAlign: "center",
-    color: "#6B7280",
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 16,
-  },
-  chartContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  legendContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  legendColorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  legendText: {
-    fontSize: 13,
-    color: "#333",
-  },
-});

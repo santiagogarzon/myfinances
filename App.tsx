@@ -6,6 +6,7 @@ import Toast from "react-native-toast-message";
 import { enableScreens } from "react-native-screens";
 import { useAuthStore } from "./src/store/authStore";
 import { LogBox } from "react-native";
+import { styled } from "nativewind";
 
 // Enable screens for better performance
 enableScreens();
@@ -16,7 +17,9 @@ LogBox.ignoreLogs([
   "Non-serializable values were found in the navigation state",
 ]);
 
-export default function App() {
+const StyledSafeAreaProvider = styled(SafeAreaProvider);
+
+function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
   useEffect(() => {
@@ -46,10 +49,12 @@ export default function App() {
   }, []); // Empty dependency array since we only want to initialize once
 
   return (
-    <SafeAreaProvider>
+    <StyledSafeAreaProvider>
       <StatusBar style="auto" />
       <AppNavigator />
       <Toast />
-    </SafeAreaProvider>
+    </StyledSafeAreaProvider>
   );
 }
+
+export default App;

@@ -94,6 +94,7 @@ export const fetchCryptoPrice = async (symbol: string): Promise<PriceData> => {
 
 // Function to fetch exchange rate for a currency against USD
 export const fetchExchangeRate = async (currency: string): Promise<PriceData> => {
+  console.log('API: Calling fetchExchangeRate for currency:', currency);
   const APP_ID = '17f1dce8c68f4890953bc8cb4082da5c'; // Your OpenExchangeRates App ID
   const baseCurrency = 'USD';
 
@@ -128,6 +129,7 @@ export const fetchExchangeRate = async (currency: string): Promise<PriceData> =>
         throw new Error(`Exchange rate not found for ${currency}`);
       }
 
+      console.log('API: fetchExchangeRate success for', currency, 'rate:', rate);
       return {
         symbol: currency,
         price: 1 / rate, // We want rate FROM currency TO USD
@@ -139,6 +141,7 @@ export const fetchExchangeRate = async (currency: string): Promise<PriceData> =>
     await apiCache.set(cacheKey, priceData);
     return priceData;
   } catch (error) {
+    console.error('API: Error fetching exchange rate for', currency, error);
     if (axios.isAxiosError(error)) {
       throw new Error(`Failed to fetch exchange rate for ${currency}: ${error.message}`);
     }

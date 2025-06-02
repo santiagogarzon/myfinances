@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "MyFinances",
+    "slug": "MyFinances",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myfinances.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow MyFinances to use Face ID to securely access your portfolio data",
+        "NSCameraUsageDescription": "We need camera access to scan QR codes for crypto transactions",
+        "NSPhotoLibraryUsageDescription": "We need photo library access to import financial documents"
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.myfinances.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermissionPrompt": "Allow $(PRODUCT_NAME) to use Face ID"
+        }
+      ]
+    ],
+    "newArchEnabled": true
+  }
+} 

@@ -1,122 +1,270 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, Alert, Modal } from "react-native";
 import { Asset } from "../types";
 import { usePortfolioStore } from "../store/portfolioStore";
+import { styled } from "nativewind";
+import { Ionicons } from "@expo/vector-icons";
+import { EditAssetForm } from "./EditAssetForm";
+import { formatCurrency, formatCurrencyForCard } from "../utils/formatUtils";
+
+const StyledView = styled(View);
+const StyledText = styled(Text);
+const StyledTouchableOpacity = styled(TouchableOpacity);
 
 interface AssetCardProps {
   asset: Asset;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }
 
-export const AssetCard: React.FC<AssetCardProps> = ({ asset }) => {
+export const AssetCard: React.FC<AssetCardProps> = ({
+  asset,
+  isExpanded,
+  onToggleExpand,
+}) => {
   const { removeAsset } = usePortfolioStore();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [optionsPosition, setOptionsPosition] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
   const totalValue = asset.quantity * asset.currentPrice;
 
+  const handleDelete = () => {
+    Alert.alert("Delete Asset", "Are you sure you want to delete this asset?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => removeAsset(asset.id),
+      },
+    ]);
+  };
+
   return (
-    <View style={styles.cardContainer}>
-      <View style={styles.headerContainer}>
-        <View>
-          <Text style={styles.symbolText}>{asset.name}</Text>
-          <Text style={styles.typeText}>{asset.type.toUpperCase()}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => removeAsset(asset.id)}
-          style={styles.removeButton}
+    <>
+      <StyledTouchableOpacity
+        onPress={() => {
+          console.log("AssetCard: Toggle expand pressed for asset:", asset.id);
+          onToggleExpand();
+        }}
+        className={`bg-white py-2 px-4 rounded-lg shadow-sm mb-3 border-l-4 ${
+          (asset.currentPrice - asset.buyPrice) * asset.quantity >= 0
+            ? "border-success"
+            : "border-danger"
+        }`}
+      >
+        <StyledView className="flex-row justify-between items-center">
+          <StyledView className="flex-row items-baseline">
+            <StyledText className="text-lg font-semibold text-dark dark:text-white">
+              {asset.name}
+            </StyledText>
+            <StyledText className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+              ({asset.type.toUpperCase()})
+            </StyledText>
+          </StyledView>
+          <StyledView className="flex-row items-center">
+            <StyledTouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation(); // Prevent the parent TouchableOpacity from triggering
+                // Measure the position of the options button
+                e.target.measure((x, y, width, height, pageX, pageY) => {
+                  setOptionsPosition({ top: pageY + height, right: 10 }); // Position below and slightly from the right edge
+                });
+                setShowOptions(!showOptions);
+              }}
+              className="p-1"
+            >
+              <Ionicons name="ellipsis-vertical" size={24} color="#6B7280" />
+            </StyledTouchableOpacity>
+            <StyledView className="p-1 ml-2">
+              <Ionicons
+                name={
+                  isExpanded ? "chevron-up-outline" : "chevron-down-outline"
+                }
+                size={24}
+                color="#6B7280"
+              />
+            </StyledView>
+          </StyledView>
+        </StyledView>
+
+        {!isExpanded && (
+          <StyledView className="mt-3 flex-row justify-between items-center">
+            {(() => {
+              const gainLoss =
+                (asset.currentPrice - asset.buyPrice) * asset.quantity;
+              const gainLossPercentage =
+                asset.buyPrice !== 0
+                  ? ((asset.currentPrice - asset.buyPrice) / asset.buyPrice) *
+                    100
+                  : 0;
+              const isGain = gainLoss >= 0;
+              const gainLossColor = isGain ? "text-success" : "text-danger";
+
+              return (
+                <StyledView className="flex-col">
+                  <StyledText className="text-gray-500 dark:text-gray-400 text-sm">
+                    Gain/Loss
+                  </StyledText>
+                  <StyledText
+                    className={`font-semibold text-base ${gainLossColor}`}
+                  >
+                    {formatCurrencyForCard(gainLoss)}
+                    {` (${gainLossPercentage.toFixed(2)}%)`}
+                  </StyledText>
+                </StyledView>
+              );
+            })()}
+
+            <StyledView className="flex-col items-end">
+              <StyledText className="text-gray-500 dark:text-gray-400 text-sm">
+                Total Value
+              </StyledText>
+              <StyledText className="text-primary font-semibold text-base">
+                {formatCurrencyForCard(totalValue)}
+              </StyledText>
+            </StyledView>
+          </StyledView>
+        )}
+
+        {isExpanded && (
+          <>
+            {asset.description && (
+              <StyledView className="mt-2">
+                <StyledText className="text-sm text-gray-600 dark:text-gray-300 italic">
+                  {asset.description}
+                </StyledText>
+              </StyledView>
+            )}
+            <StyledView className="mt-3">
+              <StyledView className="flex-row justify-between mb-1">
+                <StyledText className="text-gray-500 dark:text-gray-400">
+                  Quantity
+                </StyledText>
+                <StyledText className="text-dark dark:text-white">
+                  {asset.quantity}
+                </StyledText>
+              </StyledView>
+              {asset.type !== "cash" && (
+                <StyledView className="flex-row justify-between mb-1">
+                  <StyledText className="text-gray-500 dark:text-gray-400">
+                    Current Price
+                  </StyledText>
+                  <StyledText className="text-dark dark:text-white">
+                    {formatCurrency(asset.currentPrice)}
+                  </StyledText>
+                </StyledView>
+              )}
+              {asset.type === "cash" && (
+                <StyledView className="flex-row justify-between mb-1">
+                  <StyledText className="text-gray-500 dark:text-gray-400">
+                    Exchange Rate (to USD)
+                  </StyledText>
+                  <StyledText className="text-dark dark:text-white">
+                    {`1 ${asset.currency} = ${formatCurrency(
+                      asset.currentPrice
+                    )}`}
+                  </StyledText>
+                </StyledView>
+              )}
+              <StyledView className="flex-row justify-between mb-1">
+                <StyledText className="text-gray-500 dark:text-gray-400">
+                  Buy Price
+                </StyledText>
+                <StyledText className="text-dark dark:text-white">
+                  {formatCurrency(asset.buyPrice)}
+                </StyledText>
+              </StyledView>
+              <StyledView className="flex-row justify-between mb-1">
+                <StyledText className="text-gray-500 dark:text-gray-400">
+                  Gain/Loss
+                </StyledText>
+                <StyledText
+                  className={`font-semibold ${
+                    (asset.currentPrice - asset.buyPrice) * asset.quantity >= 0
+                      ? "text-success"
+                      : "text-danger"
+                  }`}
+                >
+                  {formatCurrencyForCard(
+                    (asset.currentPrice - asset.buyPrice) * asset.quantity
+                  )}
+                  {asset.buyPrice !== 0 &&
+                    ` (${(
+                      ((asset.currentPrice - asset.buyPrice) / asset.buyPrice) *
+                      100
+                    ).toFixed(2)}%)`}
+                </StyledText>
+              </StyledView>
+              <StyledView className="flex-row justify-between mb-1">
+                <StyledText className="text-gray-500 dark:text-gray-400">
+                  Total Value
+                </StyledText>
+                <StyledText className="text-primary font-semibold text-base">
+                  {formatCurrencyForCard(totalValue)}
+                </StyledText>
+              </StyledView>
+            </StyledView>
+
+            <StyledText className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              Last updated: {new Date(asset.lastUpdated).toLocaleString()}
+            </StyledText>
+          </>
+        )}
+      </StyledTouchableOpacity>
+
+      {/* Modal for Options Menu */}
+      <Modal
+        visible={showOptions} // Only show modal for options
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptions(false)}
+      >
+        <StyledTouchableOpacity
+          className="flex-1"
+          activeOpacity={1}
+          onPress={() => setShowOptions(false)}
         >
-          <Text style={styles.removeButtonText}>Remove</Text>
-        </TouchableOpacity>
-      </View>
+          {showOptions && optionsPosition && (
+            <StyledView
+              style={{ top: optionsPosition.top, right: optionsPosition.right }}
+              className="absolute bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-10"
+            >
+              <StyledTouchableOpacity
+                onPress={() => {
+                  setShowOptions(false);
+                  setShowEditModal(true);
+                }}
+                className="flex-row items-center py-2 px-3"
+              >
+                <Ionicons name="pencil-outline" size={20} color="#6B7280" />
+                <StyledText className="text-dark dark:text-white ml-2">
+                  Edit
+                </StyledText>
+              </StyledTouchableOpacity>
+              <StyledTouchableOpacity
+                onPress={() => {
+                  setShowOptions(false);
+                  handleDelete();
+                }}
+                className="flex-row items-center py-2 px-3"
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                <StyledText className="text-danger ml-2">Delete</StyledText>
+              </StyledTouchableOpacity>
+            </StyledView>
+          )}
+        </StyledTouchableOpacity>
+      </Modal>
 
-      <View style={styles.detailsContainer}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Quantity</Text>
-          <Text style={styles.detailValue}>{asset.quantity}</Text>
-        </View>
-        {asset.type !== "cash" && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Current Price</Text>
-            <Text style={styles.detailValue}>
-              ${asset.currentPrice.toFixed(2)}
-            </Text>
-          </View>
-        )}
-        {asset.type === "cash" && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Exchange Rate (to USD)</Text>
-            <Text style={styles.detailValue}>
-              {`1 ${asset.currency} = ${asset.currentPrice.toFixed(2)} USD`}
-            </Text>
-          </View>
-        )}
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Total Value</Text>
-          <Text style={styles.totalValueText}>${totalValue.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.lastUpdatedText}>
-        Last updated: {new Date(asset.lastUpdated).toLocaleString()}
-      </Text>
-    </View>
+      {/* Edit Asset Form Modal (remains separate) */}
+      <EditAssetForm
+        asset={asset}
+        visible={showEditModal}
+        onClose={() => setShowEditModal(false)}
+      />
+    </>
   );
 };
-
-const styles = StyleSheet.create({
-  cardContainer: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 12,
-  },
-  headerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  symbolText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1F2937",
-  },
-  typeText: {
-    fontSize: 14,
-    color: "#4B5563",
-  },
-  removeButton: {
-    backgroundColor: "#EF4444",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  removeButtonText: {
-    color: "white",
-    fontSize: 14,
-  },
-  detailsContainer: {
-    marginTop: 12,
-  },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  detailLabel: {
-    color: "#4B5563",
-  },
-  detailValue: {
-    color: "#1F2937",
-  },
-  totalValueText: {
-    color: "#3B82F6",
-    fontWeight: "600",
-  },
-  lastUpdatedText: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 8,
-  },
-});

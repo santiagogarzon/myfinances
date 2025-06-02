@@ -7,8 +7,10 @@ export interface Asset {
   type: AssetType;
   quantity: number;
   currentPrice: number;
+  buyPrice: number;
   lastUpdated: string;
   currency?: string;
+  description?: string;
 }
 
 export interface PortfolioState {
@@ -22,6 +24,9 @@ export interface AddAssetFormData {
   symbol: string;
   quantity: string;
   type: AssetType;
+  currency?: string;
+  description?: string;
+  buyPrice: string;
 }
 
 export interface PriceData {

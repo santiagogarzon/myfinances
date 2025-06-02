@@ -1,7 +1,7 @@
 export default ({ config }) => {
   return {
     ...config,
-    name: "MyFinances",
+    name: "MyFinances Pro",
     slug: "myfinances",
     version: "1.0.0",
     runtimeVersion: {
@@ -23,10 +23,7 @@ export default ({ config }) => {
       supportsTablet: true,
       bundleIdentifier: "com.santiagogarzon.myfinances",
       buildNumber: "1",
-      teamId: "T99AVZG4HX",
       infoPlist: {
-        NSFaceIDUsageDescription:
-          "We use Face ID to secure your financial data",
         NSCameraUsageDescription:
           "We need camera access to scan QR codes for crypto transactions",
         NSPhotoLibraryUsageDescription:
@@ -37,10 +34,7 @@ export default ({ config }) => {
       config: {
         usesNonExemptEncryption: false,
       },
-      appStoreUrl: "https://apps.apple.com/app/myfinances/idYOUR_APP_ID",
-      marketingUrl: "https://github.com/santiagogarzon/myfinances",
-      privacyPolicyUrl:
-        "https://github.com/santiagogarzon/myfinances/blob/main/PRIVACY.md",
+      appStoreUrl: "https://apps.apple.com/app/myfinances/id6746658180",
     },
     android: {
       package: "com.santiagogarzon.myfinances",
@@ -75,7 +69,6 @@ export default ({ config }) => {
       },
     },
     owner: "santiagogarzon", // Your Expo account username
-    privacy: "unlisted",
     description:
       "Track your investments and manage your portfolio with ease. Monitor stocks, cryptocurrencies, ETFs, and cash holdings in one place.",
     githubUrl: "https://github.com/santiagogarzon/myfinances",

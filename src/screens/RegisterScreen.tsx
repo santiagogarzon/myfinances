@@ -49,7 +49,7 @@ export const RegisterScreen: React.FC<RootStackScreenProps<"Register">> = ({
   };
 
   return (
-    <View className="flex-1 bg-gray-50 dark:bg-gray-900 px-4 pt-12">
+    <View className="flex-1 bg-gray-50 dark:bg-gray-900 px-4 pt-12 mt-8">
       <View className="mb-8">
         <Text className="text-3xl font-bold text-dark dark:text-white">
           Create Account
