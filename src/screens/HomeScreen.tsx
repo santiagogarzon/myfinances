@@ -315,8 +315,7 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
           <Ionicons
             name="settings-outline"
             size={24}
-            color="#1F2937"
-            className="dark:text-gray-200"
+            color={colorScheme === "dark" ? "#E5E7EB" : "#1F2937"}
           />
         </StyledTouchableOpacity>
       </StyledView>

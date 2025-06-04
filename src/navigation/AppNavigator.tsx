@@ -42,6 +42,7 @@ export const AppNavigator: React.FC = () => {
   const [showingPasscodeInput, setShowingPasscodeInput] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
+  const [lastUnlockTime, setLastUnlockTime] = useState<number | null>(null);
   const colorScheme = useColorScheme();
 
   // Initialize app state
@@ -70,13 +71,34 @@ export const AppNavigator: React.FC = () => {
 
   // Handle app state changes for privacy mode
   React.useEffect(() => {
+    let lockTimeout: NodeJS.Timeout;
+
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       // console.log("AppNavigator: App state changed from", appState, "to", nextAppState);
       if (appState.match(/inactive|background/) && nextAppState === "active") {
         // App has come to the foreground
         if (user && privacyMode !== "off") {
-          setIsLocked(true);
+          // Clear any existing timeout
+          if (lockTimeout) {
+            clearTimeout(lockTimeout);
+          }
+
+          // Only lock if it's been more than 2000ms since last unlock
+          if (lastUnlockTime && Date.now() - lastUnlockTime > 2000) {
+            setIsLocked(true);
+          }
         }
+      } else if (nextAppState.match(/inactive|background/)) {
+        // App is going to background, clear the timeout and set last active time
+        if (lockTimeout) {
+          clearTimeout(lockTimeout);
+        }
+        // Set a timeout to lock after 2000ms of inactivity
+        lockTimeout = setTimeout(() => {
+          if (user && privacyMode !== "off") {
+            setIsLocked(true);
+          }
+        }, 2000);
       }
       setAppState(nextAppState);
     };
@@ -88,33 +110,25 @@ export const AppNavigator: React.FC = () => {
 
     return () => {
       subscription.remove();
+      if (lockTimeout) {
+        clearTimeout(lockTimeout);
+      }
     };
-  }, [appState, user, privacyMode]);
+  }, [appState, user, privacyMode, lastUnlockTime]);
 
-  // Determine if the app should be locked
+  // Determine if the app should be locked on initial load
   React.useEffect(() => {
-    // console.log("AppNavigator: User state changed", {
-    //   user: !!user,
-    //   privacyMode,
-    //   isBiometricEnabled,
-    //   isPasscodeEnabled,
-    //   settingsLoaded,
-    // });
-
     if (settingsLoaded && user) {
       const shouldBeLocked =
         privacyMode !== "off" && (isBiometricEnabled || isPasscodeEnabled);
-      // console.log(
-      //   "AppNavigator: Determining lock state. Should be locked:",
-      //   shouldBeLocked
-      // );
-      if (privacyMode !== "off") {
+      if (privacyMode !== "off" && !lastUnlockTime) {
         setIsLocked(shouldBeLocked);
       }
     } else if (!user) {
       // If user logs out, ensure it's not locked and reset states
       setIsLocked(false);
       setShowingPasscodeInput(false);
+      setLastUnlockTime(null);
     }
   }, [
     user,
@@ -122,11 +136,13 @@ export const AppNavigator: React.FC = () => {
     isBiometricEnabled,
     isPasscodeEnabled,
     settingsLoaded,
+    lastUnlockTime,
   ]);
 
   const handleUnlock = () => {
     setIsLocked(false);
     setShowingPasscodeInput(false);
+    setLastUnlockTime(Date.now());
     // console.log("AppNavigator: App unlocked");
   };
 

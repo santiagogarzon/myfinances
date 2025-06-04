@@ -51,6 +51,11 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
           const types =
             await LocalAuthentication.supportedAuthenticationTypesAsync();
           setBiometricType(types[0] || null);
+
+          // Only trigger authentication if biometrics are available and enabled
+          if (isBiometricEnabled) {
+            authenticate();
+          }
         }
       } catch (error) {
         console.error("Error checking biometrics:", error);
@@ -59,14 +64,23 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
     };
 
     checkBiometrics();
-  }, []);
+  }, [isBiometricEnabled]);
+
+  // Add a new effect to trigger authentication when biometrics become available
+  useEffect(() => {
+    if (isBiometricAvailable && isBiometricEnabled && !hasAttemptedAuth) {
+      authenticate();
+    }
+  }, [isBiometricAvailable, isBiometricEnabled, hasAttemptedAuth]);
 
   const authenticate = async () => {
     if (isAuthenticating) return;
 
     setIsAuthenticating(true);
-    setAuthError(null);
-    setHasAttemptedAuth(true);
+    // Only clear error if this is a retry attempt
+    if (hasAttemptedAuth) {
+      setAuthError(null);
+    }
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -83,21 +97,34 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
       } else if (result.error === "user_fallback" && isPasscodeEnabled) {
         onShowPasscode();
       } else if (result.error === "user_cancel") {
-        setAuthError("Authentication cancelled.");
+        // Only show error message if this is a retry attempt
+        if (hasAttemptedAuth) {
+          setAuthError("Authentication cancelled.");
+        }
       } else if (result.error === "system_cancel") {
-        setAuthError("Authentication cancelled by system. Try again.");
+        // Only show error message if this is a retry attempt
+        if (hasAttemptedAuth) {
+          setAuthError("Authentication cancelled by system. Try again.");
+        }
       } else if (result.error === "lockout") {
         setAuthError(
           "Too many attempts. Authentication is temporarily locked."
         );
       } else {
-        setAuthError(`Authentication failed: ${result.error}`);
+        // Only show error message if this is a retry attempt
+        if (hasAttemptedAuth) {
+          setAuthError(`Authentication failed: ${result.error}`);
+        }
       }
     } catch (error) {
       console.error("LockScreen: Error during authentication:", error);
-      setAuthError("An unexpected error occurred during authentication.");
+      // Only show error message if this is a retry attempt
+      if (hasAttemptedAuth) {
+        setAuthError("An unexpected error occurred during authentication.");
+      }
     } finally {
       setIsAuthenticating(false);
+      setHasAttemptedAuth(true);
     }
   };
 

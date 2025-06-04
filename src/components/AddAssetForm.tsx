@@ -86,7 +86,6 @@ export const AddAssetForm: React.FC = () => {
     Array<{ symbol: string; name: string; type: AssetType }>
   >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [inputPosition, setInputPosition] = useState({ x: 0, y: 0, width: 0 });
   const [isSelecting, setIsSelecting] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const debounceTimer = useRef<NodeJS.Timeout | number | undefined>();
@@ -115,115 +114,104 @@ export const AddAssetForm: React.FC = () => {
       }
 
       // Set new timer
-      debounceTimer.current = setTimeout(
-        async () => {
-          try {
-            const upperText = text.toUpperCase();
-            const newSuggestions = getAssetSuggestions(text);
-            setSuggestions(newSuggestions);
-            setShowSuggestions(newSuggestions.length > 0);
+      debounceTimer.current = setTimeout(async () => {
+        try {
+          const upperText = text.toUpperCase();
+          const newSuggestions = getAssetSuggestions(text);
+          setSuggestions(newSuggestions);
+          setShowSuggestions(newSuggestions.length > 0);
 
-            let detectedType = assetType;
+          let detectedType = assetType;
 
-            // If there's an exact match, auto-detect the type
-            const exactMatch = newSuggestions.find(
-              (s) => s.symbol === upperText
-            );
-            if (exactMatch) {
-              detectedType = exactMatch.type;
-              setValue("type", detectedType);
-              // For cash assets, use the symbol as the currency
-              if (detectedType === "cash") {
-                setValue("currency", exactMatch.symbol);
-              }
-              setPriceError(null); // Clear any previous error
-            } else {
-              // If no exact match and we have a non-empty input, show error
-              if (text.trim()) {
-                if (detectedType !== "cash") {
-                  setPriceError(
-                    `Symbol "${upperText}" not recognized. Please select from suggestions or enter a valid symbol.`
-                  );
-                }
-              } else {
-                setPriceError(null);
-              }
-              // Otherwise, try to detect type from the input if no exact match
-              detectedType = detectAssetType(text);
-              setValue("type", detectedType);
-              // For cash assets, use the symbol as the currency
-              if (detectedType === "cash") {
-                setValue("currency", text.toUpperCase());
-              }
+          // If there's an exact match, auto-detect the type
+          const exactMatch = newSuggestions.find((s) => s.symbol === upperText);
+          if (exactMatch) {
+            detectedType = exactMatch.type;
+            setValue("type", detectedType);
+            // For cash assets, use the symbol as the currency
+            if (detectedType === "cash") {
+              setValue("currency", exactMatch.symbol);
             }
-
-            if (
-              upperText &&
-              (detectedType === "stock" ||
-                detectedType === "etf" ||
-                detectedType === "crypto" ||
-                detectedType === "cash")
-            ) {
-              setIsLoadingPrice(true);
-              setPriceError(null);
-              setCurrentPrice(null); // Clear previous price while fetching
-              try {
-                let priceData;
-                if (detectedType === "cash") {
-                  // Assuming fetchExchangeRate takes the currency symbol and returns rate vs USD
-                  priceData = await fetchExchangeRate(upperText);
-                } else {
-                  priceData = await fetchAssetPrice(upperText, detectedType);
-                }
-                if (
-                  priceData &&
-                  priceData.price !== undefined &&
-                  priceData.price !== null
-                ) {
-                  setCurrentPrice(priceData.price);
-                  setPriceError(null);
-                } else {
-                  // Only set price error if there's no valid price data
-                  setPriceError("Could not fetch price for symbol.");
-                  setCurrentPrice(null);
-                }
-              } catch (error) {
-                console.error(
-                  "AddAssetForm: Error fetching price (debounce):",
-                  error
-                );
+            setPriceError(null); // Clear any previous error
+          } else {
+            // If no exact match and we have a non-empty input, show error
+            if (text.trim()) {
+              if (detectedType !== "cash") {
                 setPriceError(
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to fetch price"
+                  `Symbol "${upperText}" not recognized. Please select from suggestions or enter a valid symbol.`
                 );
-                setCurrentPrice(null);
-              } finally {
-                setIsLoadingPrice(false);
               }
             } else {
-              // Clear price info if symbol is empty or type is not price-fetchable
-              setCurrentPrice(null);
               setPriceError(null);
+            }
+            // Otherwise, try to detect type from the input if no exact match
+            detectedType = detectAssetType(text);
+            setValue("type", detectedType);
+            // For cash assets, use the symbol as the currency
+            if (detectedType === "cash") {
+              setValue("currency", text.toUpperCase());
+            }
+          }
+
+          if (
+            upperText &&
+            (detectedType === "stock" ||
+              detectedType === "etf" ||
+              detectedType === "crypto" ||
+              detectedType === "cash")
+          ) {
+            setIsLoadingPrice(true);
+            setPriceError(null);
+            setCurrentPrice(null); // Clear previous price while fetching
+            try {
+              let priceData;
+              if (detectedType === "cash") {
+                // Assuming fetchExchangeRate takes the currency symbol and returns rate vs USD
+                priceData = await fetchExchangeRate(upperText);
+              } else {
+                priceData = await fetchAssetPrice(upperText, detectedType);
+              }
+              if (
+                priceData &&
+                priceData.price !== undefined &&
+                priceData.price !== null
+              ) {
+                setCurrentPrice(priceData.price);
+                setPriceError(null);
+              } else {
+                // Only set price error if there's no valid price data
+                setPriceError("Could not fetch price for symbol.");
+                setCurrentPrice(null);
+              }
+            } catch (error) {
+              console.error(
+                "AddAssetForm: Error fetching price (debounce):",
+                error
+              );
+              setPriceError(
+                error instanceof Error ? error.message : "Failed to fetch price"
+              );
+              setCurrentPrice(null);
+            } finally {
               setIsLoadingPrice(false);
             }
-            // --- End Price Fetch Logic ---
-          } catch (error) {
-            console.error("Error in handleSymbolChange debounce:", error);
-            Toast.show({
-              type: "error",
-              text1: "Error",
-              text2: "Failed to process symbol. Please try again.",
-            });
-            setIsLoadingPrice(false); // Ensure loading is off on error
-          } finally {
-            // Clear debounce timer after execution
-            debounceTimer.current = undefined; // Explicitly set to undefined
+          } else {
+            // Clear price info if symbol is empty or type is not price-fetchable
+            setCurrentPrice(null);
+            setPriceError(null);
+            setIsLoadingPrice(false);
           }
-        },
-        DEBOUNCE_DELAY,
-        assetType
-      );
+          // --- End Price Fetch Logic ---
+        } catch (error) {
+          console.error("Error in handleSymbolChange debounce:", error);
+          Toast.show({
+            type: "error",
+            text1: "Error",
+            text2: "Failed to process symbol. Please try again.",
+          });
+          setIsLoadingPrice(false);
+        }
+      }, DEBOUNCE_DELAY);
     },
     [setValue, assetType]
   );
@@ -388,10 +376,19 @@ export const AddAssetForm: React.FC = () => {
       >
         <StyledKeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
+          className="flex-1"
         >
-          <StyledView className="flex-1 bg-white/50 justify-center items-center p-4">
-            <StyledView className="bg-white dark:bg-gray-800 w-full max-w-md rounded-lg p-4 shadow-lg">
+          <StyledView className="flex-1 bg-black/50 justify-center items-center p-4">
+            <StyledView
+              className="bg-white dark:bg-gray-800 w-full max-w-md rounded-lg p-4"
+              style={{
+                elevation: 5,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+              }}
+            >
               <StyledView className="flex-row justify-between items-center mb-4">
                 <StyledText className="text-xl font-semibold text-gray-900 dark:text-white">
                   Add New Asset
@@ -408,101 +405,99 @@ export const AddAssetForm: React.FC = () => {
                 </StyledTouchableOpacity>
               </StyledView>
 
-              <Controller
-                control={control}
-                name="type"
-                render={({ field: { onChange, value } }) => (
-                  <StyledView className="mb-4">
-                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                      Type
-                    </StyledText>
-                    <StyledView className="flex-row flex-wrap gap-2">
-                      {ASSET_TYPES.map((type) => (
-                        <StyledTouchableOpacity
-                          key={type}
-                          onPress={() => onChange(type)}
-                          className={`px-3 py-2 rounded-lg ${
-                            value === type
-                              ? "bg-blue-600 dark:bg-blue-500"
-                              : "bg-gray-100 dark:bg-gray-700"
-                          }`}
-                        >
-                          <StyledText
-                            className={`${
+              <StyledView>
+                <Controller
+                  control={control}
+                  name="type"
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Type
+                      </StyledText>
+                      <StyledView className="flex-row flex-wrap gap-2">
+                        {ASSET_TYPES.map((type) => (
+                          <StyledTouchableOpacity
+                            key={type}
+                            onPress={() => onChange(type)}
+                            className={`px-3 py-2 rounded-lg ${
                               value === type
-                                ? "text-white"
-                                : "text-gray-900 dark:text-white"
+                                ? "bg-blue-600 dark:bg-blue-500"
+                                : "bg-gray-100 dark:bg-gray-700"
                             }`}
                           >
-                            {type.toUpperCase()}
-                          </StyledText>
-                        </StyledTouchableOpacity>
-                      ))}
+                            <StyledText
+                              className={`${
+                                value === type
+                                  ? "text-white"
+                                  : "text-gray-900 dark:text-white"
+                              }`}
+                            >
+                              {type.toUpperCase()}
+                            </StyledText>
+                          </StyledTouchableOpacity>
+                        ))}
+                      </StyledView>
                     </StyledView>
-                  </StyledView>
-                )}
-              />
+                  )}
+                />
 
-              <Controller
-                control={control}
-                name="symbol"
-                rules={{ required: "Symbol is required" }}
-                render={({ field: { onChange, value } }) => (
-                  <StyledView className="mb-4">
-                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                      Symbol
-                    </StyledText>
-                    <StyledView>
-                      <StyledTextInput
-                        ref={inputRef}
-                        onFocus={measureInput}
-                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
-                        placeholder={
-                          assetType === "cash"
-                            ? "e.g., USD, EUR"
-                            : "e.g., AAPL, BTC"
-                        }
-                        placeholderTextColor="#9CA3AF"
-                        onChangeText={(text) =>
-                          handleSymbolChange(text, onChange)
-                        }
-                        value={value}
-                        autoCapitalize={
-                          assetType === "cash" ? "characters" : "none"
-                        }
-                      />
+                <Controller
+                  control={control}
+                  name="symbol"
+                  rules={{ required: "Symbol is required" }}
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Symbol
+                      </StyledText>
+                      <StyledView>
+                        <StyledTextInput
+                          ref={inputRef}
+                          className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                          placeholder={
+                            assetType === "cash"
+                              ? "e.g., USD, EUR"
+                              : "e.g., AAPL, BTC"
+                          }
+                          placeholderTextColor="#9CA3AF"
+                          onChangeText={(text) =>
+                            handleSymbolChange(text, onChange)
+                          }
+                          value={value}
+                          autoCapitalize={
+                            assetType === "cash" ? "characters" : "none"
+                          }
+                        />
+                      </StyledView>
                       {showSuggestions &&
                         suggestions.length > 0 &&
                         !isSelecting && (
                           <StyledView
+                            className="mt-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                             style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              zIndex: 1000,
-                              backgroundColor: "white",
-                              borderRadius: 8,
-                              marginTop: 4,
                               shadowColor: "#000",
                               shadowOffset: { width: 0, height: 2 },
                               shadowOpacity: 0.25,
                               shadowRadius: 3.84,
                               elevation: 5,
+                              height: 160, // Height for 4 items (40px per item)
                             }}
-                            className="dark:bg-gray-800"
                           >
                             <StyledScrollView
-                              style={{ maxHeight: 200 }}
-                              className="p-2"
+                              showsVerticalScrollIndicator={true}
+                              nestedScrollEnabled={true}
                             >
-                              {suggestions.map((suggestion) => (
+                              {suggestions.map((suggestion, index) => (
                                 <StyledTouchableOpacity
                                   key={suggestion.symbol}
                                   onPress={() =>
                                     handleSuggestionSelect(suggestion)
                                   }
-                                  className="p-2 rounded-lg active:bg-gray-100 dark:active:bg-gray-700"
+                                  className={`p-3 ${
+                                    index !== suggestions.length - 1
+                                      ? "border-b border-gray-200 dark:border-gray-700"
+                                      : ""
+                                  } active:bg-gray-100 dark:active:bg-gray-700`}
                                 >
                                   <StyledView className="flex-row justify-between items-center">
                                     <StyledView>
@@ -522,180 +517,178 @@ export const AddAssetForm: React.FC = () => {
                             </StyledScrollView>
                           </StyledView>
                         )}
-                    </StyledView>
-                    {errors.symbol && (
-                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
-                        {errors.symbol.message}
-                      </StyledText>
-                    )}
-                    {priceError && (
-                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
-                        {priceError}
-                      </StyledText>
-                    )}
-                  </StyledView>
-                )}
-              />
-
-              {assetType === "cash" && (
-                <Controller
-                  control={control}
-                  name="currency"
-                  rules={{ required: "Currency is required" }}
-                  render={({ field: { onChange, value } }) => (
-                    <StyledView className="mb-4">
-                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                        Currency
-                      </StyledText>
-                      <StyledTextInput
-                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
-                        placeholder="e.g., USD"
-                        placeholderTextColor="#9CA3AF"
-                        onChangeText={onChange}
-                        value={value}
-                        autoCapitalize="characters"
-                      />
-                      {errors.currency && (
+                      {errors.symbol && (
                         <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
-                          {errors.currency.message}
+                          {errors.symbol.message}
+                        </StyledText>
+                      )}
+                      {priceError && (
+                        <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                          {priceError}
                         </StyledText>
                       )}
                     </StyledView>
                   )}
                 />
-              )}
 
-              <Controller
-                control={control}
-                name="quantity"
-                rules={{ required: "Quantity is required" }}
-                render={({ field: { onChange, value } }) => (
-                  <StyledView className="mb-4">
-                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                      Quantity
-                    </StyledText>
-                    <StyledTextInput
-                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
-                      placeholder="e.g., 100"
-                      placeholderTextColor="#9CA3AF"
-                      onChangeText={onChange}
-                      value={value}
-                      keyboardType="decimal-pad"
-                    />
-                    {errors.quantity && (
-                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
-                        {errors.quantity.message}
-                      </StyledText>
-                    )}
-                  </StyledView>
-                )}
-              />
-
-              <Controller
-                control={control}
-                name="buyPrice"
-                rules={{ required: "Buy price is required" }}
-                render={({ field: { onChange, value } }) => (
-                  <StyledView className="mb-4">
-                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                      Buy Price
-                    </StyledText>
-                    <StyledTextInput
-                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
-                      placeholder="e.g., 150.50"
-                      placeholderTextColor="#9CA3AF"
-                      onChangeText={onChange}
-                      value={value}
-                      keyboardType="decimal-pad"
-                    />
-                    {errors.buyPrice && (
-                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
-                        {errors.buyPrice.message}
-                      </StyledText>
-                    )}
-                  </StyledView>
-                )}
-              />
-
-              {(assetType === "stock" ||
-                assetType === "etf" ||
-                assetType === "crypto" ||
-                assetType === "cash") &&
-                parseFloat(quantity) > 0 &&
-                symbol.trim() !== "" &&
-                !isLoadingPrice &&
-                currentPrice !== null && (
-                  <StyledView className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                    {isLoadingPrice ? (
-                      <StyledView className="flex-row items-center justify-center">
-                        <ActivityIndicator size="small" color="#6B7280" />
-                        <StyledText className="text-gray-600 dark:text-gray-300 ml-2">
-                          Fetching price...
+                {assetType === "cash" && (
+                  <Controller
+                    control={control}
+                    name="currency"
+                    rules={{ required: "Currency is required" }}
+                    render={({ field: { onChange, value } }) => (
+                      <StyledView className="mb-4">
+                        <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                          Currency
                         </StyledText>
+                        <StyledTextInput
+                          className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                          placeholder="e.g., USD"
+                          placeholderTextColor="#9CA3AF"
+                          onChangeText={onChange}
+                          value={value}
+                          autoCapitalize="characters"
+                        />
+                        {errors.currency && (
+                          <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                            {errors.currency.message}
+                          </StyledText>
+                        )}
                       </StyledView>
-                    ) : priceError ? (
-                      <StyledText className="text-red-600 dark:text-red-400 text-sm">
-                        {priceError}
+                    )}
+                  />
+                )}
+
+                <Controller
+                  control={control}
+                  name="quantity"
+                  rules={{ required: "Quantity is required" }}
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Quantity
                       </StyledText>
-                    ) : currentPrice !== null ? (
-                      <>
-                        <StyledView className="flex-row justify-between mb-1">
-                          <StyledText className="text-gray-600 dark:text-gray-300">
-                            Current Market Price:
-                          </StyledText>
-                          <StyledText className="text-gray-900 dark:text-white font-semibold">
-                            {formatCurrency(currentPrice)}
-                          </StyledText>
-                        </StyledView>
-                        <StyledView className="flex-row justify-between">
-                          <StyledText className="text-gray-600 dark:text-gray-300">
-                            Total Value:
-                          </StyledText>
-                          <StyledText className="text-blue-600 dark:text-blue-400 font-semibold">
-                            {formatCurrency(totalValue)}
-                          </StyledText>
-                        </StyledView>
-                      </>
-                    ) : null}
-                  </StyledView>
-                )}
+                      <StyledTextInput
+                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                        placeholder="e.g., 10"
+                        placeholderTextColor="#9CA3AF"
+                        onChangeText={onChange}
+                        value={value}
+                        keyboardType="decimal-pad"
+                      />
+                      {errors.quantity && (
+                        <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                          {errors.quantity.message}
+                        </StyledText>
+                      )}
+                    </StyledView>
+                  )}
+                />
 
-              <Controller
-                control={control}
-                name="description"
-                render={({ field: { onChange, value } }) => (
-                  <StyledView className="mb-4">
-                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                      Description (Optional)
+                <Controller
+                  control={control}
+                  name="buyPrice"
+                  rules={{ required: "Buy price is required" }}
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Buy Price
+                      </StyledText>
+                      <StyledTextInput
+                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                        placeholder="e.g., 150.50"
+                        placeholderTextColor="#9CA3AF"
+                        onChangeText={onChange}
+                        value={value}
+                        keyboardType="decimal-pad"
+                      />
+                      {errors.buyPrice && (
+                        <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                          {errors.buyPrice.message}
+                        </StyledText>
+                      )}
+                    </StyledView>
+                  )}
+                />
+
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Description (Optional)
+                      </StyledText>
+                      <StyledTextInput
+                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                        placeholder="e.g., Robinhood account, Bank of America savings"
+                        placeholderTextColor="#9CA3AF"
+                        onChangeText={onChange}
+                        value={value}
+                        autoCapitalize="sentences"
+                        multiline
+                        numberOfLines={2}
+                        textAlignVertical="top"
+                      />
+                    </StyledView>
+                  )}
+                />
+
+                {(assetType === "stock" ||
+                  assetType === "etf" ||
+                  assetType === "crypto" ||
+                  assetType === "cash") &&
+                  parseFloat(quantity || "0") > 0 &&
+                  symbol.trim() !== "" && (
+                    <StyledView className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                      {isLoadingPrice ? (
+                        <StyledView className="flex-row items-center justify-center">
+                          <ActivityIndicator size="small" color="#6B7280" />
+                          <StyledText className="text-gray-600 dark:text-gray-300 ml-2">
+                            Fetching price...
+                          </StyledText>
+                        </StyledView>
+                      ) : priceError ? (
+                        <StyledText className="text-red-600 dark:text-red-400 text-sm">
+                          {priceError}
+                        </StyledText>
+                      ) : currentPrice !== null ? (
+                        <>
+                          <StyledView className="flex-row justify-between mb-1">
+                            <StyledText className="text-gray-600 dark:text-gray-300">
+                              Current Market Price:
+                            </StyledText>
+                            <StyledText className="text-gray-900 dark:text-white font-semibold">
+                              {formatCurrency(currentPrice)}
+                            </StyledText>
+                          </StyledView>
+                          <StyledView className="flex-row justify-between">
+                            <StyledText className="text-gray-600 dark:text-gray-300">
+                              Total Value:
+                            </StyledText>
+                            <StyledText className="text-blue-600 dark:text-blue-400 font-semibold">
+                              {formatCurrency(totalValue)}
+                            </StyledText>
+                          </StyledView>
+                        </>
+                      ) : null}
+                    </StyledView>
+                  )}
+
+                <StyledTouchableOpacity
+                  onPress={handleSubmit(handleFormSubmit)}
+                  className="bg-blue-600 dark:bg-blue-500 p-3 rounded-lg flex-row justify-center items-center"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <StyledText className="text-white text-center font-semibold">
+                      Add Asset
                     </StyledText>
-                    <StyledTextInput
-                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
-                      placeholder="e.g., Robinhood account, Bank of America savings"
-                      placeholderTextColor="#9CA3AF"
-                      onChangeText={onChange}
-                      value={value}
-                      autoCapitalize="sentences"
-                      multiline
-                      numberOfLines={2}
-                      textAlignVertical="top"
-                    />
-                  </StyledView>
-                )}
-              />
-
-              <StyledTouchableOpacity
-                onPress={handleSubmit(handleFormSubmit)}
-                className="bg-blue-600 dark:bg-blue-500 p-3 rounded-lg flex-row justify-center items-center"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <StyledText className="text-white text-center font-semibold">
-                    Add Asset
-                  </StyledText>
-                )}
-              </StyledTouchableOpacity>
+                  )}
+                </StyledTouchableOpacity>
+              </StyledView>
             </StyledView>
           </StyledView>
         </StyledKeyboardAvoidingView>
