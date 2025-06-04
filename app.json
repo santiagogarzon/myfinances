@@ -21,7 +21,8 @@
       "infoPlist": {
         "NSFaceIDUsageDescription": "Allow MyFinances to use Face ID to securely access your portfolio data",
         "NSCameraUsageDescription": "We need camera access to scan QR codes for crypto transactions",
-        "NSPhotoLibraryUsageDescription": "We need photo library access to import financial documents"
+        "NSPhotoLibraryUsageDescription": "We need photo library access to import financial documents",
+        "UIBackgroundModes": ["remote-notification"]
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -32,7 +33,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.myfinances.app"
+      "package": "com.myfinances.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,7 +45,20 @@
         {
           "faceIDPermissionPrompt": "Allow $(PRODUCT_NAME) to use Face ID"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "1e00c82f-a08c-4f8d-a395-7aa2554491de"
+      }
+    }
   }
 } 

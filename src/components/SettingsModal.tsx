@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { useAuthStore } from "../store/authStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { useNavigation } from "@react-navigation/native";
 import { removePasscode } from "../utils/passcodeUtils";
+import * as LocalAuthentication from "expo-local-authentication";
+import Constants from "expo-constants";
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -27,7 +29,7 @@ const SettingsModal: React.FC = () => {
   const { logout } = useAuthStore();
   const {
     isBiometricEnabled,
-    setIsBiometricEnabled,
+    setBiometricEnabled,
     isPasscodeEnabled,
     setIsPasscodeEnabled,
     privacyMode,
@@ -36,7 +38,44 @@ const SettingsModal: React.FC = () => {
     setNotificationPreference,
   } = useSettingsStore();
 
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const navigation = useNavigation();
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        if (Constants.appOwnership === "expo") {
+          setIsBiometricAvailable(false);
+          return;
+        }
+
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        setIsBiometricAvailable(compatible && enrolled);
+      } catch (error) {
+        console.error("Error checking biometrics:", error);
+        setIsBiometricAvailable(false);
+      }
+    };
+
+    checkBiometrics();
+  }, []);
+
+  const handleBiometricToggle = async (value: boolean) => {
+    try {
+      if (value) {
+        // When enabling biometric, also set privacy mode to on_app_background
+        await setPrivacyMode("on_app_background");
+      } else {
+        // When disabling biometric, turn off privacy mode
+        await setPrivacyMode("off");
+      }
+      await setBiometricEnabled(value);
+    } catch (error) {
+      console.error("Failed to update biometric settings:", error);
+      Alert.alert("Error", "Could not update biometric settings.");
+    }
+  };
 
   const handleDisablePasscode = () => {
     Alert.alert(
@@ -78,93 +117,35 @@ const SettingsModal: React.FC = () => {
       style={{ flex: 1 }}
     >
       <StyledScrollView className="flex-1 p-4 bg-gray-100 dark:bg-gray-900">
-        <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">
-            Privacy Mode
-          </StyledText>
-          <StyledText className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Control when the app locks and requires authentication.
-          </StyledText>
-          <StyledTouchableOpacity
-            className={`flex-row items-center py-3 px-4 rounded-lg mb-2 ${
-              privacyMode === "off"
-                ? "bg-primary"
-                : "bg-gray-200 dark:bg-gray-700"
-            }`}
-            onPress={() => setPrivacyMode("off")}
-          >
-            <StyledText
-              className={`${
-                privacyMode === "off"
-                  ? "text-white"
-                  : "text-dark dark:text-white"
-              }`}
-            >
-              Off
+        {isBiometricAvailable && (
+          <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">
+              Security
             </StyledText>
-          </StyledTouchableOpacity>
-          <StyledTouchableOpacity
-            className={`flex-row items-center py-3 px-4 rounded-lg mb-2 ${
-              privacyMode === "on_app_close"
-                ? "bg-primary"
-                : "bg-gray-200 dark:bg-gray-700"
-            }`}
-            onPress={() => setPrivacyMode("on_app_close")}
-          >
-            <StyledText
-              className={`${
-                privacyMode === "on_app_close"
-                  ? "text-white"
-                  : "text-dark dark:text-white"
-              }`}
-            >
-              Lock when app is closed
+            <StyledText className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Use Face ID or Touch ID to secure your portfolio when the app is
+              in the background.
             </StyledText>
-          </StyledTouchableOpacity>
-          <StyledTouchableOpacity
-            className={`flex-row items-center py-3 px-4 rounded-lg ${
-              privacyMode === "on_app_background"
-                ? "bg-primary"
-                : "bg-gray-200 dark:bg-gray-700"
-            }`}
-            onPress={() => setPrivacyMode("on_app_background")}
-          >
-            <StyledText
-              className={`${
-                privacyMode === "on_app_background"
-                  ? "text-white"
-                  : "text-dark dark:text-white"
+            <StyledTouchableOpacity
+              className={`flex-row items-center py-3 px-4 rounded-lg ${
+                isBiometricEnabled
+                  ? "bg-primary"
+                  : "bg-gray-200 dark:bg-gray-700"
               }`}
+              onPress={() => handleBiometricToggle(!isBiometricEnabled)}
             >
-              Lock when app goes to background
-            </StyledText>
-          </StyledTouchableOpacity>
-        </StyledView>
-
-        <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">
-            Biometric Authentication
-          </StyledText>
-          <StyledText className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Unlock with Face ID or Touch ID (if available).
-          </StyledText>
-          <StyledTouchableOpacity
-            className={`flex-row items-center py-3 px-4 rounded-lg ${
-              isBiometricEnabled ? "bg-primary" : "bg-gray-200 dark:bg-gray-700"
-            }`}
-            onPress={() => setIsBiometricEnabled(!isBiometricEnabled)}
-          >
-            <StyledText
-              className={`${
-                isBiometricEnabled ? "text-white" : "text-dark dark:text-white"
-              }`}
-            >
-              {isBiometricEnabled
-                ? "Enabled"
-                : "Enable Biometric Authentication"}
-            </StyledText>
-          </StyledTouchableOpacity>
-        </StyledView>
+              <StyledText
+                className={`${
+                  isBiometricEnabled
+                    ? "text-white"
+                    : "text-dark dark:text-white"
+                }`}
+              >
+                {isBiometricEnabled ? "Security Enabled" : "Enable Security"}
+              </StyledText>
+            </StyledTouchableOpacity>
+          </StyledView>
+        )}
 
         <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
           <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">

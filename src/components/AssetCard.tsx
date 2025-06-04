@@ -24,11 +24,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({
 }) => {
   const { removeAsset } = usePortfolioStore();
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
-  const [optionsPosition, setOptionsPosition] = useState<{
-    top: number;
-    right: number;
-  } | null>(null);
   const totalValue = asset.quantity * asset.currentPrice;
 
   const handleDelete = () => {
@@ -45,9 +40,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   return (
     <>
       <StyledTouchableOpacity
-        onPress={() => {
-          onToggleExpand();
-        }}
+        onPress={onToggleExpand}
         className={`bg-white dark:bg-gray-800 py-2 px-4 rounded-lg shadow-sm mb-3 border-l-4 ${
           (asset.currentPrice - asset.buyPrice) * asset.quantity >= 0
             ? "border-green-500 dark:border-green-400"
@@ -67,30 +60,47 @@ export const AssetCard: React.FC<AssetCardProps> = ({
             <StyledTouchableOpacity
               onPress={(e) => {
                 e.stopPropagation();
-                e.target.measure((x, y, width, height, pageX, pageY) => {
-                  setOptionsPosition({ top: pageY + height, right: 10 });
-                });
-                setShowOptions(!showOptions);
+                setShowEditModal(true);
               }}
-              className="p-1"
+              className="p-2"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
-                name="ellipsis-vertical"
-                size={24}
+                name="pencil-outline"
+                size={20}
                 color="#6B7280"
                 className="dark:text-gray-400"
               />
             </StyledTouchableOpacity>
-            <StyledView className="p-1 ml-2">
+            <StyledTouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
+              className="p-2"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color="#EF4444"
+                className="dark:text-red-400"
+              />
+            </StyledTouchableOpacity>
+            <StyledTouchableOpacity
+              onPress={onToggleExpand}
+              className="p-2"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons
                 name={
                   isExpanded ? "chevron-up-outline" : "chevron-down-outline"
                 }
-                size={24}
+                size={20}
                 color="#6B7280"
                 className="dark:text-gray-400"
               />
-            </StyledView>
+            </StyledTouchableOpacity>
           </StyledView>
         </StyledView>
 
@@ -220,62 +230,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({
           </>
         )}
       </StyledTouchableOpacity>
-
-      {/* Modal for Options Menu */}
-      <Modal
-        visible={showOptions}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowOptions(false)}
-      >
-        <StyledTouchableOpacity
-          className="flex-1"
-          activeOpacity={1}
-          onPress={() => setShowOptions(false)}
-        >
-          {showOptions && optionsPosition && (
-            <StyledView
-              style={{ top: optionsPosition.top, right: optionsPosition.right }}
-              className="absolute bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-10"
-            >
-              <StyledTouchableOpacity
-                onPress={() => {
-                  setShowOptions(false);
-                  setShowEditModal(true);
-                }}
-                className="flex-row items-center py-2 px-3"
-              >
-                <Ionicons
-                  name="pencil-outline"
-                  size={20}
-                  color="#6B7280"
-                  className="dark:text-gray-400"
-                />
-                <StyledText className="text-gray-900 dark:text-white ml-2">
-                  Edit
-                </StyledText>
-              </StyledTouchableOpacity>
-              <StyledTouchableOpacity
-                onPress={() => {
-                  setShowOptions(false);
-                  handleDelete();
-                }}
-                className="flex-row items-center py-2 px-3"
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={20}
-                  color="#EF4444"
-                  className="dark:text-red-400"
-                />
-                <StyledText className="text-red-600 dark:text-red-400 ml-2">
-                  Delete
-                </StyledText>
-              </StyledTouchableOpacity>
-            </StyledView>
-          )}
-        </StyledTouchableOpacity>
-      </Modal>
 
       {/* Edit Asset Form Modal */}
       <EditAssetForm

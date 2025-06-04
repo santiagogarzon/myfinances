@@ -50,13 +50,26 @@ class NotificationService {
         return null;
       }
 
-      // Get the token
-      const token = (await Notifications.getExpoPushTokenAsync({
+      // Get the Expo push token
+      const expoPushToken = await Notifications.getExpoPushTokenAsync({
         projectId: Constants.expoConfig?.extra?.eas?.projectId,
-      })).data;
+      });
 
-      // Save the token to Firestore
-      await this.saveTokenToFirestore(token);
+      if (!expoPushToken.data) {
+        console.log('Failed to get Expo push token');
+        return null;
+      }
+
+      // Convert Expo push token to FCM token
+      const fcmToken = await this.convertExpoTokenToFCM(expoPushToken.data);
+      
+      if (!fcmToken) {
+        console.log('Failed to convert Expo token to FCM token');
+        return null;
+      }
+
+      // Save the FCM token to Firestore
+      await this.saveTokenToFirestore(fcmToken);
 
       // Set up Android channel
       if (Platform.OS === 'android') {
@@ -68,9 +81,34 @@ class NotificationService {
         });
       }
 
-      return token;
+      return fcmToken;
     } catch (error) {
       console.error('Error registering for push notifications:', error);
+      return null;
+    }
+  }
+
+  // Convert Expo push token to FCM token
+  private async convertExpoTokenToFCM(expoToken: string): Promise<string | null> {
+    try {
+      const response = await fetch('https://exp.host/--/api/v2/push/getExpoPushToken', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expoPushToken: expoToken,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to convert token');
+      }
+
+      const data = await response.json();
+      return data.fcmToken;
+    } catch (error) {
+      console.error('Error converting Expo token to FCM:', error);
       return null;
     }
   }

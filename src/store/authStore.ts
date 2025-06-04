@@ -6,8 +6,8 @@ import {
   signOut as firebaseSignOut,
   User as FirebaseUser,
   onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithCredential
+  // GoogleAuthProvider,
+  // signInWithCredential
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
@@ -24,7 +24,7 @@ interface AuthState {
   error: string | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: (idToken: string) => Promise<void>;
+  // signInWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   initializeAuth: () => Promise<() => void>;
   clearError: () => void;
@@ -131,32 +131,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithGoogle: async (idToken: string) => {
-    try {
-      console.log('Starting Google Sign-In process');
-      set({ isLoading: true, error: null });
+  // signInWithGoogle: async (idToken: string) => {
+  //   try {
+  //     console.log('Starting Google Sign-In process');
+  //     set({ isLoading: true, error: null });
 
-      // Build Firebase credential with the Google ID token.
-      const credential = GoogleAuthProvider.credential(idToken);
+  //     // Build Firebase credential with the Google ID token.
+  //     const credential = GoogleAuthProvider.credential(idToken);
 
-      // Sign in with credential from the Google user.
-      const userCredential = await signInWithCredential(auth, credential);
-      console.log('Firebase Google Sign-In successful', userCredential.user);
+  //     // Sign in with credential from the Google user.
+  //     const userCredential = await signInWithCredential(auth, credential);
+  //     console.log('Firebase Google Sign-In successful', userCredential.user);
 
-      const user = convertFirebaseUser(userCredential.user);
-      await storeUserData(user);
-      await AsyncStorage.setItem('@is_logged_in', 'true');
+  //     const user = convertFirebaseUser(userCredential.user);
+  //     await storeUserData(user);
+  //     await AsyncStorage.setItem('@is_logged_in', 'true');
 
-      set({ user, isLoading: false });
-      console.log('Google Sign-In completed successfully');
-    } catch (error: any) {
-      console.error('Google Sign-In error:', error);
-      let errorMessage = 'An error occurred during Google Sign-In';
-      // Handle specific Firebase Auth errors for Google Sign-In if needed
-      set({ error: errorMessage, isLoading: false });
-      throw new Error(errorMessage);
-    }
-  },
+  //     set({ user, isLoading: false });
+  //     console.log('Google Sign-In completed successfully');
+  //   } catch (error: any) {
+  //     console.error('Google Sign-In error:', error);
+  //     let errorMessage = 'An error occurred during Google Sign-In';
+  //     set({ error: errorMessage, isLoading: false });
+  //     throw new Error(errorMessage);
+  //   }
+  // },
 
   logout: async () => {
     try {

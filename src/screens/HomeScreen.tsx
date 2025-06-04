@@ -117,44 +117,13 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
     outputRange: ["0%", "100%"], // Animate width from 0% to 100%
   });
 
-  const registerForPushNotificationsAsync = async () => {
-    if (Device.isDevice) {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") {
-        alert("Failed to get push token for push notification!");
-        return;
-      }
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log("Expo Push Token:", token);
-      // Here you would typically send the token to your backend server
-    } else {
-      console.log("Must use physical device for Push Notifications");
-    }
-
-    if (Platform.OS === "android") {
-      Notifications.setNotificationChannelAsync("default", {
-        name: "default",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#FF231F7C",
-      });
-    }
-  };
-
-  // Handle notification responses
+  // Keep only the notification response handling
   useEffect(() => {
     const handleLastNotificationResponse = async () => {
       const lastNotificationResponse =
-        await Notifications.getLastNotificationResponseAsync(); // Await the promise
+        await Notifications.getLastNotificationResponseAsync();
       if (lastNotificationResponse) {
-        // console.log("Last notification response:", lastNotificationResponse);
-        // You might want to navigate the user based on the notification data
+        // Handle the last notification response if needed
       }
     };
 
@@ -162,23 +131,31 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
 
     const responseListener =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        // console.log("Notification response received:", response);
         // Handle notification response when the app is open
+        const data = response.notification.request.content.data;
+        if (data?.type === "price_change" && data?.assetId) {
+          // Navigate to asset details if needed
+        }
       });
 
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        // console.log("Notification received:", notification);
         // Handle received notification when the app is in the foreground
+        const title = notification.request.content.title;
+        const body = notification.request.content.body;
+        if (title && body) {
+          Toast.show({
+            type: "info",
+            text1: title,
+            text2: body,
+          });
+        }
       }
     );
-
-    // console.log("HomeScreen: Setting up notification listeners");
 
     return () => {
       responseListener.remove();
       notificationListener.remove();
-      // console.log("HomeScreen: Removing notification listeners");
     };
   }, []);
 
@@ -190,13 +167,6 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
       setHasAttemptedLoad(true);
     }
   }, [user, hasAttemptedLoad, loadAssets]);
-
-  // Effect for registering for push notifications
-  useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-  // Effect for handling notifications
 
   // Cleanup effect
   useEffect(() => {
