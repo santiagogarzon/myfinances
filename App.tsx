@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppNavigator } from "./src/navigation/AppNavigator";
@@ -10,12 +10,6 @@ import { styled } from "nativewind";
 
 // Enable screens for better performance
 enableScreens();
-
-// Ignore specific warnings
-LogBox.ignoreLogs([
-  "AsyncStorage has been extracted from react-native",
-  "Non-serializable values were found in the navigation state",
-]);
 
 const StyledSafeAreaProvider = styled(SafeAreaProvider);
 
