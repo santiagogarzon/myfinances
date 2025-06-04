@@ -41,8 +41,8 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
   // Early return if no assets
   if (!assets || assets.length === 0) {
     return (
-      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
-        <StyledText className="text-gray-500 text-center">
+      <StyledView className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 dark:text-gray-400 text-center">
           Add assets to see portfolio distribution
         </StyledText>
       </StyledView>
@@ -76,8 +76,8 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
   // If total is 0 or invalid, show message
   if (!total || isNaN(total) || !isFinite(total)) {
     return (
-      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
-        <StyledText className="text-gray-500 text-center">
+      <StyledView className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 dark:text-gray-400 text-center">
           Unable to calculate portfolio distribution
         </StyledText>
       </StyledView>
@@ -92,8 +92,8 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
       return {
         name: capitalize(type),
         value,
-        color: COLORS[type as AssetType] || "#CCCCCC", // Fallback color if type is unknown
-        legendFontColor: "#7F7F7F",
+        color: COLORS[type as AssetType] || "#CCCCCC",
+        legendFontColor: "#6B7280",
         legendFontSize: 12,
         percentage,
       };
@@ -102,8 +102,8 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
   // If no valid chart data, show message
   if (chartData.length === 0) {
     return (
-      <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
-        <StyledText className="text-gray-500 text-center">
+      <StyledView className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-4">
+        <StyledText className="text-gray-500 dark:text-gray-400 text-center">
           No valid assets to display
         </StyledText>
       </StyledView>
@@ -112,39 +112,51 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
 
   // Prepare data specifically for the PieChart component
   const pieChartData = chartData.map((item) => ({
-    name: item.name,
+    name: `${item.name} - ${formatCurrency(
+      Math.round(item.value)
+    )} - (${item.percentage.toFixed(1)}%)`,
     value: item.value,
     color: item.color,
-    legendFontColor: item.legendFontColor,
+    legendFontColor: "#6B7280",
     legendFontSize: item.legendFontSize,
   }));
 
   return (
-    <StyledView className="bg-white p-4 rounded-lg shadow-sm mb-4">
-      <StyledView className="flex-row items-center justify-center">
-        <PieChart
-          data={pieChartData}
-          width={screenWidth * 0.5}
-          height={chartHeight}
-          chartConfig={chartConfig}
-          accessor="value"
-          backgroundColor="transparent"
-          paddingLeft="30"
-          absolute
-          hasLegend={false}
-          avoidFalseZero
-        />
-        {/* Custom Legend */}
-        <StyledView className="flex-1 mr-2">
-          {chartData.map((item, index) => (
-            <StyledView key={index} className="flex-row items-center mb-1.5">
+    <StyledView className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-4">
+      <StyledView className="flex-row">
+        <StyledView className="flex-1">
+          <PieChart
+            data={pieChartData}
+            width={screenWidth - 200}
+            height={chartHeight}
+            chartConfig={{
+              backgroundColor: "#ffffff",
+              backgroundGradientFrom: "#ffffff",
+              backgroundGradientTo: "#ffffff",
+              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+            }}
+            accessor="value"
+            backgroundColor="transparent"
+            paddingLeft="30"
+            absolute
+            hasLegend={false}
+          />
+        </StyledView>
+        <StyledView className="flex-1 justify-center ml-4">
+          {chartData.map((item) => (
+            <StyledView key={item.name} className="flex-row items-center mb-2">
               <StyledView
-                className="w-2.5 h-2.5 rounded-full mr-2"
+                className="w-2 h-2 rounded-full mr-2"
                 style={{ backgroundColor: item.color }}
               />
-              <StyledText className="text-sm text-gray-700 dark:text-gray-300">
-                {item.name} — {formatCurrency(item.value)} (
-                {item.percentage.toFixed(1)}%)
+              <StyledText className="text-gray-900 dark:text-white text-sm">
+                {`${item.name} ${formatCurrency(
+                  Math.round(item.value)
+                )} (${item.percentage.toFixed(1)}%)`}
               </StyledText>
             </StyledView>
           ))}
@@ -153,7 +165,6 @@ export const PortfolioChart: React.FC<PortfolioChartProps> = ({ assets }) => {
     </StyledView>
   );
 };
-
 const chartConfig = {
   backgroundColor: "#ffffff",
   backgroundGradientFrom: "#ffffff",

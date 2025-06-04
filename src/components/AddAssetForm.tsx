@@ -8,6 +8,8 @@ import {
   Keyboard,
   Modal,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Controller } from "react-hook-form";
 import { useAddAssetForm } from "../hooks/useAddAssetForm";
@@ -27,6 +29,7 @@ const StyledText = styled(Text);
 const StyledTextInput = styled(TextInput);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
+const StyledKeyboardAvoidingView = styled(KeyboardAvoidingView);
 
 const ASSET_TYPES: AssetType[] = ["stock", "etf", "crypto", "cash"];
 const DEBOUNCE_DELAY = 1000;
@@ -40,6 +43,25 @@ const getAutoCapitalize = (
 
 // Add formatting function
 const formatCurrency = (value: number): string => {
+  // For very small numbers (less than 0.01), show more decimal places
+  if (value > 0 && value < 0.01) {
+    // Count how many leading zeros after the decimal point
+    const decimalStr = value.toFixed(20); // Use a large number of decimals to start
+    const match = decimalStr.match(/^0\.0*/);
+    const leadingZeros = match ? match[0].length - 2 : 0; // -2 because of "0."
+
+    // Show 2 more digits than the leading zeros
+    const minFractionDigits = Math.min(leadingZeros + 2, 8); // Cap at 8 decimal places
+
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: minFractionDigits,
+      maximumFractionDigits: minFractionDigits,
+    }).format(value);
+  }
+
+  // For normal numbers, use standard 2 decimal places
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -82,19 +104,6 @@ export const AddAssetForm: React.FC = () => {
   // Calculate total value
   const totalValue =
     currentPrice && quantity ? currentPrice * parseFloat(quantity) : 0;
-
-  console.log("AddAssetForm: Check market value display conditions:", {
-    assetType,
-    quantity,
-    symbol,
-    isLoadingPrice,
-    currentPrice,
-    isStockEtfCrypto:
-      assetType === "stock" || assetType === "etf" || assetType === "crypto",
-    isQuantityValid: parseFloat(quantity) > 0,
-    isSymbolValid: symbol.trim() !== "",
-    isPriceAvailable: !isLoadingPrice && currentPrice !== null,
-  });
 
   const handleSymbolChange = useCallback(
     (text: string, onChange: (value: string) => void) => {
@@ -148,11 +157,6 @@ export const AddAssetForm: React.FC = () => {
               }
             }
 
-            // --- Start Price Fetch Logic (Moved from useEffect) ---
-            console.log(
-              "AddAssetForm: Debounce finished, attempting to fetch price",
-              { symbol: upperText, assetType: detectedType }
-            );
             if (
               upperText &&
               (detectedType === "stock" ||
@@ -171,10 +175,6 @@ export const AddAssetForm: React.FC = () => {
                 } else {
                   priceData = await fetchAssetPrice(upperText, detectedType);
                 }
-                console.log(
-                  "AddAssetForm: Price fetch result (debounce):",
-                  priceData
-                );
                 if (
                   priceData &&
                   priceData.price !== undefined &&
@@ -182,18 +182,10 @@ export const AddAssetForm: React.FC = () => {
                 ) {
                   setCurrentPrice(priceData.price);
                   setPriceError(null);
-                  console.log(
-                    "AddAssetForm: Successfully set current price (debounce):",
-                    priceData.price
-                  );
                 } else {
                   // Only set price error if there's no valid price data
                   setPriceError("Could not fetch price for symbol.");
                   setCurrentPrice(null);
-                  console.log(
-                    "AddAssetForm: Price data is invalid or null (debounce).",
-                    priceData
-                  );
                 }
               } catch (error) {
                 console.error(
@@ -208,18 +200,12 @@ export const AddAssetForm: React.FC = () => {
                 setCurrentPrice(null);
               } finally {
                 setIsLoadingPrice(false);
-                console.log(
-                  "AddAssetForm: Price fetch finally block executed (debounce)"
-                );
               }
             } else {
               // Clear price info if symbol is empty or type is not price-fetchable
               setCurrentPrice(null);
               setPriceError(null);
               setIsLoadingPrice(false);
-              console.log(
-                "AddAssetForm: Symbol is empty or asset type not price-fetchable."
-              );
             }
             // --- End Price Fetch Logic ---
           } catch (error) {
@@ -254,11 +240,6 @@ export const AddAssetForm: React.FC = () => {
           setValue("currency", suggestion.symbol);
         }
 
-        // --- Start Price Fetch Logic for Suggestion Select ---
-        console.log(
-          "AddAssetForm: Suggestion selected, attempting to fetch price",
-          { symbol: suggestion.symbol, assetType: suggestion.type }
-        );
         if (
           suggestion.symbol &&
           (suggestion.type === "stock" ||
@@ -279,10 +260,6 @@ export const AddAssetForm: React.FC = () => {
                 suggestion.type
               );
             }
-            console.log(
-              "AddAssetForm: Price fetch result (suggestion):",
-              priceData
-            );
             if (
               priceData &&
               priceData.price !== undefined &&
@@ -290,17 +267,9 @@ export const AddAssetForm: React.FC = () => {
             ) {
               setCurrentPrice(priceData.price);
               setPriceError(null);
-              console.log(
-                "AddAssetForm: Successfully set current price (suggestion):",
-                priceData.price
-              );
             } else {
               setPriceError("Could not fetch price for symbol.");
               setCurrentPrice(null);
-              console.log(
-                "AddAssetForm: Price data is invalid or null (suggestion).",
-                priceData
-              );
             }
           } catch (error) {
             console.error(
@@ -313,18 +282,12 @@ export const AddAssetForm: React.FC = () => {
             setCurrentPrice(null);
           } finally {
             setIsLoadingPrice(false);
-            console.log(
-              "AddAssetForm: Price fetch finally block executed (suggestion)"
-            );
           }
         } else {
           // Clear price info if symbol is empty or type is not price-fetchable
           setCurrentPrice(null);
           setPriceError(null);
           setIsLoadingPrice(false);
-          console.log(
-            "AddAssetForm: Symbol is empty or asset type not price-fetchable (suggestion)."
-          );
         }
         // --- End Price Fetch Logic for Suggestion Select ---
 
@@ -409,7 +372,7 @@ export const AddAssetForm: React.FC = () => {
     <>
       <StyledTouchableOpacity
         onPress={handleOpenModal}
-        className="bg-primary p-4 rounded-lg shadow-sm mb-4 flex-row items-center justify-center"
+        className="bg-blue-600 dark:bg-blue-500 p-4 rounded-lg shadow-sm mb-4 flex-row items-center justify-center"
       >
         <Ionicons name="add-circle" size={24} color="white" />
         <StyledText className="text-white text-lg font-semibold ml-2">
@@ -423,300 +386,319 @@ export const AddAssetForm: React.FC = () => {
         animationType="slide"
         onRequestClose={() => setIsModalVisible(false)}
       >
-        <StyledView className="flex-1 bg-black/50 justify-center items-center p-4">
-          <StyledView className="bg-white dark:bg-gray-900 w-full max-w-md rounded-lg p-4">
-            <StyledView className="flex-row justify-between items-center mb-4">
-              <StyledText className="text-xl font-semibold text-dark dark:text-white">
-                Add New Asset
-              </StyledText>
-              <StyledTouchableOpacity onPress={() => setIsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </StyledTouchableOpacity>
-            </StyledView>
+        <StyledKeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <StyledView className="flex-1 bg-white/50 justify-center items-center p-4">
+            <StyledView className="bg-white dark:bg-gray-800 w-full max-w-md rounded-lg p-4 shadow-lg">
+              <StyledView className="flex-row justify-between items-center mb-4">
+                <StyledText className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Add New Asset
+                </StyledText>
+                <StyledTouchableOpacity
+                  onPress={() => setIsModalVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color="#6B7280"
+                    className="dark:text-gray-400"
+                  />
+                </StyledTouchableOpacity>
+              </StyledView>
 
-            <Controller
-              control={control}
-              name="symbol"
-              rules={{ required: "Symbol is required" }}
-              render={({ field: { onChange, value } }) => (
-                <StyledView className="mb-4">
-                  <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                    Symbol
-                  </StyledText>
-                  <StyledView className="relative">
-                    <StyledTextInput
-                      ref={inputRef}
-                      className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white pr-10"
-                      placeholder={
-                        assetType === "cash"
-                          ? "e.g., USD, EUR"
-                          : "e.g., AAPL, BTC"
-                      }
-                      placeholderTextColor="#9CA3AF"
-                      onChangeText={(text) =>
-                        handleSymbolChange(text, onChange)
-                      }
-                      value={value}
-                      autoCapitalize={getAutoCapitalize(assetType)}
-                      onFocus={() => {
-                        if (!isSelecting) {
-                          measureInput();
-                          if (value) {
-                            const newSuggestions = getAssetSuggestions(value);
-                            setSuggestions(newSuggestions);
-                            setShowSuggestions(newSuggestions.length > 0);
-                          }
-                        }
-                      }}
-                      onLayout={measureInput}
-                      blurOnSubmit={false}
-                    />
-                    {value ? (
-                      <StyledTouchableOpacity
-                        className="absolute right-3 h-full justify-center"
-                        onPress={() => {
-                          onChange("");
-                          setSuggestions([]);
-                          setShowSuggestions(false);
-                          setValue("type", "stock");
-                          if (inputRef.current) {
-                            inputRef.current.focus();
-                          }
-                        }}
-                      >
-                        <Ionicons
-                          name="close-circle"
-                          size={18}
-                          color="#9CA3AF"
-                        />
-                      </StyledTouchableOpacity>
-                    ) : null}
-                    <Modal
-                      visible={showSuggestions && suggestions.length > 0}
-                      transparent
-                      animationType="none"
-                      onRequestClose={() => setShowSuggestions(false)}
-                    >
-                      <StyledTouchableOpacity
-                        className="flex-1"
-                        activeOpacity={1}
-                        onPress={() => setShowSuggestions(false)}
-                      >
-                        <StyledView
-                          className="absolute bg-transparent"
-                          style={{
-                            top: inputPosition.y,
-                            left: inputPosition.x,
-                            width: inputPosition.width,
-                            maxHeight: 200,
-                          }}
-                          pointerEvents="box-none"
+              <Controller
+                control={control}
+                name="type"
+                render={({ field: { onChange, value } }) => (
+                  <StyledView className="mb-4">
+                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                      Type
+                    </StyledText>
+                    <StyledView className="flex-row flex-wrap gap-2">
+                      {ASSET_TYPES.map((type) => (
+                        <StyledTouchableOpacity
+                          key={type}
+                          onPress={() => onChange(type)}
+                          className={`px-3 py-2 rounded-lg ${
+                            value === type
+                              ? "bg-blue-600 dark:bg-blue-500"
+                              : "bg-gray-100 dark:bg-gray-700"
+                          }`}
                         >
+                          <StyledText
+                            className={`${
+                              value === type
+                                ? "text-white"
+                                : "text-gray-900 dark:text-white"
+                            }`}
+                          >
+                            {type.toUpperCase()}
+                          </StyledText>
+                        </StyledTouchableOpacity>
+                      ))}
+                    </StyledView>
+                  </StyledView>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="symbol"
+                rules={{ required: "Symbol is required" }}
+                render={({ field: { onChange, value } }) => (
+                  <StyledView className="mb-4">
+                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                      Symbol
+                    </StyledText>
+                    <StyledView>
+                      <StyledTextInput
+                        ref={inputRef}
+                        onFocus={measureInput}
+                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                        placeholder={
+                          assetType === "cash"
+                            ? "e.g., USD, EUR"
+                            : "e.g., AAPL, BTC"
+                        }
+                        placeholderTextColor="#9CA3AF"
+                        onChangeText={(text) =>
+                          handleSymbolChange(text, onChange)
+                        }
+                        value={value}
+                        autoCapitalize={
+                          assetType === "cash" ? "characters" : "none"
+                        }
+                      />
+                      {showSuggestions &&
+                        suggestions.length > 0 &&
+                        !isSelecting && (
                           <StyledView
-                            className="bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
-                            pointerEvents="auto"
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              zIndex: 1000,
+                              backgroundColor: "white",
+                              borderRadius: 8,
+                              marginTop: 4,
+                              shadowColor: "#000",
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: 0.25,
+                              shadowRadius: 3.84,
+                              elevation: 5,
+                            }}
+                            className="dark:bg-gray-800"
                           >
                             <StyledScrollView
-                              className="rounded-lg"
-                              keyboardShouldPersistTaps="handled"
-                              nestedScrollEnabled
+                              style={{ maxHeight: 200 }}
+                              className="p-2"
                             >
                               {suggestions.map((suggestion) => (
                                 <StyledTouchableOpacity
                                   key={suggestion.symbol}
-                                  className="p-3 border-b border-gray-200 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-800"
                                   onPress={() =>
                                     handleSuggestionSelect(suggestion)
                                   }
+                                  className="p-2 rounded-lg active:bg-gray-100 dark:active:bg-gray-700"
                                 >
-                                  <StyledText className="text-dark dark:text-white font-semibold">
-                                    {suggestion.symbol}
-                                  </StyledText>
-                                  <StyledText className="text-gray-600 dark:text-gray-300 text-sm">
-                                    {suggestion.name} (
-                                    {suggestion.type.toUpperCase()})
-                                  </StyledText>
+                                  <StyledView className="flex-row justify-between items-center">
+                                    <StyledView>
+                                      <StyledText className="text-gray-900 dark:text-white font-medium">
+                                        {suggestion.symbol}
+                                      </StyledText>
+                                      <StyledText className="text-gray-500 dark:text-gray-400 text-sm">
+                                        {suggestion.name}
+                                      </StyledText>
+                                    </StyledView>
+                                    <StyledText className="text-gray-500 dark:text-gray-400 text-sm">
+                                      {suggestion.type.toUpperCase()}
+                                    </StyledText>
+                                  </StyledView>
                                 </StyledTouchableOpacity>
                               ))}
                             </StyledScrollView>
                           </StyledView>
-                        </StyledView>
-                      </StyledTouchableOpacity>
-                    </Modal>
-                  </StyledView>
-                  {errors.symbol && (
-                    <StyledText className="text-danger text-sm mt-1">
-                      {errors.symbol.message}
-                    </StyledText>
-                  )}
-                </StyledView>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="quantity"
-              rules={{
-                required: "Quantity is required",
-                pattern: {
-                  value: /^\d*\.?\d+$/,
-                  message: "Please enter a valid number",
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <StyledView className="mb-4">
-                  <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                    Quantity
-                  </StyledText>
-                  <StyledTextInput
-                    className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
-                    placeholder="e.g., 10"
-                    placeholderTextColor="#9CA3AF"
-                    onChangeText={onChange}
-                    value={value}
-                    keyboardType="decimal-pad"
-                  />
-                  {errors.quantity && (
-                    <StyledText className="text-danger text-sm mt-1">
-                      {errors.quantity.message}
-                    </StyledText>
-                  )}
-                </StyledView>
-              )}
-            />
-
-            {/* Current Market Price and Total Value Display */}
-            {(assetType === "stock" ||
-              assetType === "etf" ||
-              assetType === "crypto" ||
-              assetType === "cash") &&
-              parseFloat(quantity) > 0 &&
-              symbol.trim() !== "" &&
-              !isLoadingPrice &&
-              currentPrice !== null && (
-                <StyledView className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  {isLoadingPrice ? (
-                    <StyledView className="flex-row items-center justify-center">
-                      <ActivityIndicator size="small" color="#6B7280" />
-                      <StyledText className="text-gray-600 dark:text-gray-300 ml-2">
-                        Fetching price...
-                      </StyledText>
+                        )}
                     </StyledView>
-                  ) : priceError ? (
-                    <StyledText className="text-danger text-sm">
-                      {priceError}
-                    </StyledText>
-                  ) : currentPrice !== null ? (
-                    <>
-                      <StyledView className="flex-row justify-between mb-1">
-                        <StyledText className="text-gray-600 dark:text-gray-300">
-                          Current Market Price:
-                        </StyledText>
-                        <StyledText className="text-dark dark:text-white font-semibold">
-                          {formatCurrency(currentPrice)}
-                        </StyledText>
-                      </StyledView>
-                      <StyledView className="flex-row justify-between">
-                        <StyledText className="text-gray-600 dark:text-gray-300">
-                          Total Value:
-                        </StyledText>
-                        <StyledText className="text-primary font-semibold">
-                          {formatCurrency(totalValue)}
-                        </StyledText>
-                      </StyledView>
-                    </>
-                  ) : null}
-                  {/* Should not reach here if currentPrice is null and no error */}
-                </StyledView>
-              )}
-
-            <Controller
-              control={control}
-              name="buyPrice"
-              rules={{
-                required: "Buy price is required",
-                pattern: {
-                  value: /^\d*\.?\d+$/,
-                  message: "Please enter a valid number",
-                },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <StyledView className="mb-4">
-                  <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                    Buy Price
-                  </StyledText>
-                  <StyledTextInput
-                    className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
-                    placeholder="e.g., 150.25"
-                    placeholderTextColor="#9CA3AF"
-                    onChangeText={onChange}
-                    value={value}
-                    keyboardType="decimal-pad"
-                  />
-                  {errors.buyPrice && (
-                    <StyledText className="text-danger text-sm mt-1">
-                      {errors.buyPrice.message}
-                    </StyledText>
-                  )}
-                </StyledView>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="type"
-              render={({ field: { value } }) => (
-                <StyledView className="mb-4">
-                  <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                    Type (Auto-detected)
-                  </StyledText>
-                  <StyledView className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
-                    <StyledText className="text-dark dark:text-white">
-                      {(value || "").toUpperCase()}
-                    </StyledText>
+                    {errors.symbol && (
+                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                        {errors.symbol.message}
+                      </StyledText>
+                    )}
+                    {priceError && (
+                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                        {priceError}
+                      </StyledText>
+                    )}
                   </StyledView>
-                </StyledView>
-              )}
-            />
+                )}
+              />
 
-            <Controller
-              control={control}
-              name="description"
-              render={({ field: { onChange, value } }) => (
-                <StyledView className="mb-4">
-                  <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
-                    Description (Optional)
+              {assetType === "cash" && (
+                <Controller
+                  control={control}
+                  name="currency"
+                  rules={{ required: "Currency is required" }}
+                  render={({ field: { onChange, value } }) => (
+                    <StyledView className="mb-4">
+                      <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                        Currency
+                      </StyledText>
+                      <StyledTextInput
+                        className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                        placeholder="e.g., USD"
+                        placeholderTextColor="#9CA3AF"
+                        onChangeText={onChange}
+                        value={value}
+                        autoCapitalize="characters"
+                      />
+                      {errors.currency && (
+                        <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                          {errors.currency.message}
+                        </StyledText>
+                      )}
+                    </StyledView>
+                  )}
+                />
+              )}
+
+              <Controller
+                control={control}
+                name="quantity"
+                rules={{ required: "Quantity is required" }}
+                render={({ field: { onChange, value } }) => (
+                  <StyledView className="mb-4">
+                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                      Quantity
+                    </StyledText>
+                    <StyledTextInput
+                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                      placeholder="e.g., 100"
+                      placeholderTextColor="#9CA3AF"
+                      onChangeText={onChange}
+                      value={value}
+                      keyboardType="decimal-pad"
+                    />
+                    {errors.quantity && (
+                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                        {errors.quantity.message}
+                      </StyledText>
+                    )}
+                  </StyledView>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="buyPrice"
+                rules={{ required: "Buy price is required" }}
+                render={({ field: { onChange, value } }) => (
+                  <StyledView className="mb-4">
+                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                      Buy Price
+                    </StyledText>
+                    <StyledTextInput
+                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                      placeholder="e.g., 150.50"
+                      placeholderTextColor="#9CA3AF"
+                      onChangeText={onChange}
+                      value={value}
+                      keyboardType="decimal-pad"
+                    />
+                    {errors.buyPrice && (
+                      <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
+                        {errors.buyPrice.message}
+                      </StyledText>
+                    )}
+                  </StyledView>
+                )}
+              />
+
+              {(assetType === "stock" ||
+                assetType === "etf" ||
+                assetType === "crypto" ||
+                assetType === "cash") &&
+                parseFloat(quantity) > 0 &&
+                symbol.trim() !== "" &&
+                !isLoadingPrice &&
+                currentPrice !== null && (
+                  <StyledView className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    {isLoadingPrice ? (
+                      <StyledView className="flex-row items-center justify-center">
+                        <ActivityIndicator size="small" color="#6B7280" />
+                        <StyledText className="text-gray-600 dark:text-gray-300 ml-2">
+                          Fetching price...
+                        </StyledText>
+                      </StyledView>
+                    ) : priceError ? (
+                      <StyledText className="text-red-600 dark:text-red-400 text-sm">
+                        {priceError}
+                      </StyledText>
+                    ) : currentPrice !== null ? (
+                      <>
+                        <StyledView className="flex-row justify-between mb-1">
+                          <StyledText className="text-gray-600 dark:text-gray-300">
+                            Current Market Price:
+                          </StyledText>
+                          <StyledText className="text-gray-900 dark:text-white font-semibold">
+                            {formatCurrency(currentPrice)}
+                          </StyledText>
+                        </StyledView>
+                        <StyledView className="flex-row justify-between">
+                          <StyledText className="text-gray-600 dark:text-gray-300">
+                            Total Value:
+                          </StyledText>
+                          <StyledText className="text-blue-600 dark:text-blue-400 font-semibold">
+                            {formatCurrency(totalValue)}
+                          </StyledText>
+                        </StyledView>
+                      </>
+                    ) : null}
+                  </StyledView>
+                )}
+
+              <Controller
+                control={control}
+                name="description"
+                render={({ field: { onChange, value } }) => (
+                  <StyledView className="mb-4">
+                    <StyledText className="text-gray-600 dark:text-gray-300 mb-1">
+                      Description (Optional)
+                    </StyledText>
+                    <StyledTextInput
+                      className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                      placeholder="e.g., Robinhood account, Bank of America savings"
+                      placeholderTextColor="#9CA3AF"
+                      onChangeText={onChange}
+                      value={value}
+                      autoCapitalize="sentences"
+                      multiline
+                      numberOfLines={2}
+                      textAlignVertical="top"
+                    />
+                  </StyledView>
+                )}
+              />
+
+              <StyledTouchableOpacity
+                onPress={handleSubmit(handleFormSubmit)}
+                className="bg-blue-600 dark:bg-blue-500 p-3 rounded-lg flex-row justify-center items-center"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <StyledText className="text-white text-center font-semibold">
+                    Add Asset
                   </StyledText>
-                  <StyledTextInput
-                    className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
-                    placeholder="e.g., Robinhood account, Bank of America savings"
-                    placeholderTextColor="#9CA3AF"
-                    onChangeText={onChange}
-                    value={value}
-                    autoCapitalize="sentences"
-                    multiline
-                    numberOfLines={2}
-                    textAlignVertical="top"
-                  />
-                </StyledView>
-              )}
-            />
-
-            <StyledTouchableOpacity
-              onPress={handleSubmit(handleFormSubmit)}
-              className="bg-primary p-3 rounded-lg flex-row justify-center items-center"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <StyledText className="text-white text-center font-semibold">
-                  Add Asset
-                </StyledText>
-              )}
-            </StyledTouchableOpacity>
+                )}
+              </StyledTouchableOpacity>
+            </StyledView>
           </StyledView>
-        </StyledView>
+        </StyledKeyboardAvoidingView>
       </Modal>
     </>
   );

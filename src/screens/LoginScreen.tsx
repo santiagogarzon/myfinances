@@ -11,6 +11,8 @@ import { useAuthStore } from "../store/authStore";
 import { RootStackScreenProps } from "../types/navigation";
 import Toast from "react-native-toast-message";
 import { styled } from "nativewind";
+import * as Google from "expo-auth-session/providers/google";
+import * as AuthSession from "expo-auth-session";
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -25,7 +27,7 @@ interface LoginFormData {
 export const LoginScreen: React.FC<RootStackScreenProps<"Login">> = ({
   navigation,
 }) => {
-  const { signIn, isLoading, error } = useAuthStore();
+  const { signIn, signInWithGoogle, isLoading, error } = useAuthStore();
   const {
     control,
     handleSubmit,
@@ -37,11 +39,46 @@ export const LoginScreen: React.FC<RootStackScreenProps<"Login">> = ({
     },
   });
 
+  // Google Sign-In configuration
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId:
+      "545601338949-bqbppa5vv2jepddv2rq73nkekmc4fu1g.apps.googleusercontent.com",
+    iosClientId:
+      "545601338949-bqbppa5vv2jepddv2rq73nkekmc4fu1g.apps.googleusercontent.com",
+    webClientId:
+      "545601338949-bqbppa5vv2jepddv2rq73nkekmc4fu1g.apps.googleusercontent.com",
+  });
+
+  // Handle Google Sign-In response
+  React.useEffect(() => {
+    if (response) {
+      if (response.type === "success") {
+        const { authentication } = response; // Access authentication directly from response
+        if (authentication?.idToken) {
+          signInWithGoogle(authentication.idToken);
+        }
+      } else if (response.type === "error") {
+        console.error("Google Auth Error:", response.error);
+        // Ensure the error message is a string
+        const errorMessage =
+          typeof response.error === "string"
+            ? response.error
+            : response.error?.message || "An unknown error occurred";
+        Toast.show({
+          type: "error",
+          text1: "Google Sign-In Failed",
+          text2: errorMessage,
+        });
+      }
+    }
+  }, [response]);
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       await signIn(data.email, data.password);
       control._reset();
     } catch (error) {
+      console.error("Sign in error:", error);
       Toast.show({
         type: "error",
         text1: "Login Failed",
@@ -140,6 +177,27 @@ export const LoginScreen: React.FC<RootStackScreenProps<"Login">> = ({
           <StyledText className="text-white text-center font-semibold text-lg">
             Sign In
           </StyledText>
+        )}
+      </StyledTouchableOpacity>
+
+      {/* Google Sign-In Button */}
+      <StyledTouchableOpacity
+        onPress={() => {
+          promptAsync();
+          useAuthStore.getState().clearError(); // Clear auth errors before attempting Google Sign-In
+        }}
+        disabled={!request || isLoading}
+        className="bg-red-500 p-4 rounded-lg mb-4 flex-row items-center justify-center"
+      >
+        {isLoading ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <>
+            {/* You might want to add a Google icon here */}
+            <StyledText className="text-white text-center font-semibold text-lg ml-2">
+              Sign In with Google
+            </StyledText>
+          </>
         )}
       </StyledTouchableOpacity>
 

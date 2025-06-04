@@ -3,11 +3,12 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   View,
-  ActivityIndicator,
   Text,
   AppState,
   AppStateStatus,
   TouchableOpacity as RNTouchableOpacity,
+  Dimensions,
+  useColorScheme,
 } from "react-native";
 import { useAuthStore } from "../store/authStore";
 import { LoginScreen } from "../screens/LoginScreen";
@@ -21,6 +22,10 @@ import { Easing, Animated } from "react-native";
 import { LockScreen } from "../components/LockScreen";
 import { PasscodeSetup } from "../components/PasscodeSetup";
 import { Ionicons } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
+import { notificationService } from "../services/notificationService";
+import Toast from "react-native-toast-message";
+import { NavigationProp, ParamListBase } from "@react-navigation/native";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const StyledView = styled(View);
@@ -37,12 +42,13 @@ export const AppNavigator: React.FC = () => {
   const [showingPasscodeInput, setShowingPasscodeInput] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
+  const colorScheme = useColorScheme();
 
   // Initialize app state
-  useEffect(() => {
+  React.useEffect(() => {
     const initialize = async () => {
       try {
-        console.log("AppNavigator: Initializing...");
+        // console.log("AppNavigator: Initializing...");
         await loadSettings();
         setIsReady(true);
         setSettingsLoaded(true);
@@ -53,101 +59,55 @@ export const AppNavigator: React.FC = () => {
     initialize();
   }, []);
 
-  useEffect(() => {
-    console.log("AppNavigator - Auth State:", {
-      isReady,
-      isAuthLoading,
-      hasUser: !!user,
-      userId: user?.uid,
-    });
+  React.useEffect(() => {
+    // console.log("AppNavigator - Auth State:", {
+    //   isReady,
+    //   isAuthLoading,
+    //   hasUser: !!user,
+    //   userId: user?.uid,
+    // });
   }, [isReady, user, isAuthLoading]);
 
-  useEffect(() => {
+  // Handle app state changes for privacy mode
+  React.useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      console.log("App State changed:", appState, "->", nextAppState);
-
+      // console.log("AppNavigator: App state changed from", appState, "to", nextAppState);
       if (appState.match(/inactive|background/) && nextAppState === "active") {
-        console.log("App has come to the foreground!");
-        if (
-          user &&
-          settingsLoaded &&
-          privacyMode !== "off" &&
-          (isBiometricEnabled || isPasscodeEnabled)
-        ) {
-          if (privacyMode === "on_app_background") {
-            setIsLocked(true);
-          }
-        }
-      } else if (nextAppState.match(/inactive|background/)) {
-        console.log("App has gone to the background.");
-        if (
-          user &&
-          settingsLoaded &&
-          privacyMode !== "off" &&
-          (isBiometricEnabled || isPasscodeEnabled)
-        ) {
-          if (
-            privacyMode === "on_app_close" ||
-            privacyMode === "on_app_background"
-          ) {
-            setIsLocked(true);
-          }
+        // App has come to the foreground
+        if (user && privacyMode !== "off") {
+          setIsLocked(true);
         }
       }
       setAppState(nextAppState);
     };
 
-    const appStateSubscription = AppState.addEventListener(
+    const subscription = AppState.addEventListener(
       "change",
       handleAppStateChange
     );
 
-    // Check initial app state
-    if (AppState.currentState !== "active") {
-      if (
-        user &&
-        settingsLoaded &&
-        privacyMode !== "off" &&
-        (isBiometricEnabled || isPasscodeEnabled)
-      ) {
-        if (
-          privacyMode === "on_app_close" ||
-          privacyMode === "on_app_background"
-        ) {
-          setIsLocked(true);
-        }
-      }
-    }
-
     return () => {
-      appStateSubscription.remove();
+      subscription.remove();
     };
-  }, [
-    user,
-    privacyMode,
-    isBiometricEnabled,
-    isPasscodeEnabled,
-    settingsLoaded,
-    appState,
-  ]);
+  }, [appState, user, privacyMode]);
 
   // Determine if the app should be locked
-  useEffect(() => {
-    console.log("AppNavigator: User state changed", {
-      user: !!user,
-      privacyMode,
-      isBiometricEnabled,
-      isPasscodeEnabled,
-      settingsLoaded,
-    });
+  React.useEffect(() => {
+    // console.log("AppNavigator: User state changed", {
+    //   user: !!user,
+    //   privacyMode,
+    //   isBiometricEnabled,
+    //   isPasscodeEnabled,
+    //   settingsLoaded,
+    // });
 
     if (settingsLoaded && user) {
       const shouldBeLocked =
         privacyMode !== "off" && (isBiometricEnabled || isPasscodeEnabled);
-      console.log(
-        "AppNavigator: Determining lock state. Should be locked:",
-        shouldBeLocked
-      );
+      // console.log(
+      //   "AppNavigator: Determining lock state. Should be locked:",
+      //   shouldBeLocked
+      // );
       if (privacyMode !== "off") {
         setIsLocked(shouldBeLocked);
       }
@@ -167,20 +127,117 @@ export const AppNavigator: React.FC = () => {
   const handleUnlock = () => {
     setIsLocked(false);
     setShowingPasscodeInput(false);
-    console.log("AppNavigator: App unlocked");
+    // console.log("AppNavigator: App unlocked");
   };
 
   const handleShowPasscode = () => {
     setShowingPasscodeInput(true);
-    console.log("AppNavigator: Showing passcode input");
+    // console.log("AppNavigator: Showing passcode input");
   };
+
+  // Set up notification listeners
+  useEffect(() => {
+    // Register for push notifications
+    const setupNotifications = async () => {
+      try {
+        await notificationService.registerForPushNotifications();
+      } catch (error) {
+        console.error("Error setting up notifications:", error);
+      }
+    };
+
+    setupNotifications();
+
+    // Set up notification listeners
+    const cleanup = notificationService.setupNotificationListeners(
+      // Handle received notification
+      (notification) => {
+        console.log("Notification received:", notification);
+        // You can show a toast or handle the notification here
+        const title = notification.request.content.title || "";
+        const body = notification.request.content.body || "";
+
+        Toast.show({
+          type: "info",
+          text1: title,
+          text2: body,
+        });
+      },
+      // Handle notification response (when user taps the notification)
+      (response) => {
+        console.log("Notification response:", response);
+        const data = response.notification.request.content.data;
+
+        // Handle different notification types
+        if (data?.type === "price_change" && data?.assetId) {
+          // Navigate to the asset details or handle the price change
+          const navigation = navigationRef.current;
+          if (navigation) {
+            (navigation as NavigationProp<ParamListBase>).navigate("Home", {
+              screen: "AssetDetails",
+              params: { assetId: data.assetId },
+            });
+          }
+        }
+      }
+    );
+
+    // Cleanup listeners on unmount
+    return () => {
+      cleanup();
+      notificationService.removeTokenFromFirestore();
+    };
+  }, []);
 
   // Show loading screen only during initial load
   if (!isReady || isAuthLoading) {
+    const screenWidth = Dimensions.get("window").width;
+    const screenHeight = Dimensions.get("window").height;
+    const animationSize = Math.min(screenWidth, screenHeight) * 0.8;
+
     return (
-      <StyledView className="flex-1 bg-gray-900 justify-center items-center">
-        <ActivityIndicator size="large" color="#34D399" />
-        <StyledText className="text-white mt-4 text-lg">Loading...</StyledText>
+      <StyledView
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          backgroundColor:
+            colorScheme === "dark"
+              ? "#1F2937" // Solid gray-800
+              : "#FFFFFF", // Solid white
+        }}
+      >
+        <StyledView
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <StyledView
+            style={{
+              width: animationSize,
+              height: animationSize,
+              backgroundColor: "transparent",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <LottieView
+              source={require("../assets/loading-animation.json")}
+              autoPlay
+              loop
+              style={{
+                width: "100%",
+                height: "100%",
+                backgroundColor: "transparent",
+              }}
+            />
+          </StyledView>
+        </StyledView>
       </StyledView>
     );
   }

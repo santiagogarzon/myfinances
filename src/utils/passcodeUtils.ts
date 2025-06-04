@@ -4,11 +4,12 @@ const PASSCODE_STORAGE_KEY = '@app_passcode';
 
 export const setPasscode = async (passcode: string): Promise<void> => {
   try {
+    // console.log('Setting passcode...');
     await SecureStore.setItemAsync(PASSCODE_STORAGE_KEY, passcode);
-    console.log('Passcode stored successfully.');
+    // console.log('Passcode set successfully.');
   } catch (error) {
-    console.error('Error storing passcode:', error);
-    throw new Error('Failed to store passcode.');
+    console.error('Error setting passcode:', error);
+    throw new Error('Failed to set passcode.');
   }
 };
 
@@ -16,9 +17,10 @@ export const checkPasscode = async (passcode: string): Promise<boolean> => {
   try {
     const storedPasscode = await SecureStore.getItemAsync(PASSCODE_STORAGE_KEY);
     if (storedPasscode === null) {
-      console.log('No passcode stored.');
+      // console.log('No passcode stored.');
       return false;
     }
+    // console.log('Passcode checked.');
     return storedPasscode === passcode;
   } catch (error) {
     console.error('Error checking passcode:', error);
@@ -29,6 +31,7 @@ export const checkPasscode = async (passcode: string): Promise<boolean> => {
 export const hasPasscode = async (): Promise<boolean> => {
   try {
     const storedPasscode = await SecureStore.getItemAsync(PASSCODE_STORAGE_KEY);
+    // console.log('Checking for passcode existence.');
     return storedPasscode !== null;
   } catch (error) {
     console.error('Error checking for passcode existence:', error);
@@ -39,10 +42,11 @@ export const hasPasscode = async (): Promise<boolean> => {
 
 export const removePasscode = async (): Promise<void> => {
   try {
+    // console.log('Deleting passcode...');
     await SecureStore.deleteItemAsync(PASSCODE_STORAGE_KEY);
-    console.log('Passcode removed successfully.');
+    // console.log('Passcode deleted successfully.');
   } catch (error) {
-    console.error('Error removing passcode:', error);
-    throw new Error('Failed to remove passcode.');
+    console.error('Error deleting passcode:', error);
+    throw new Error('Failed to delete passcode.');
   }
 }; 

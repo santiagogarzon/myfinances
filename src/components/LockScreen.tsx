@@ -32,14 +32,15 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
   >(null);
   const [biometricType, setBiometricType] =
     useState<LocalAuthentication.AuthenticationType | null>(null);
+  const [hasAttemptedAuth, setHasAttemptedAuth] = useState(false);
 
   useEffect(() => {
     const checkBiometrics = async () => {
       try {
         if (Constants.appOwnership === "expo") {
-          console.log(
-            "Running in Expo Go, disabling biometric authentication."
-          );
+          // console.log(
+          //   "Running in Expo Go, disabling biometric authentication."
+          // );
           setIsBiometricAvailable(false);
           return;
         }
@@ -60,26 +61,22 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
     checkBiometrics();
   }, []);
 
-  useEffect(() => {
-    if (isBiometricEnabled && isBiometricAvailable && !isAuthenticating) {
-      authenticate();
-    }
-  }, [isBiometricEnabled, isBiometricAvailable, isAuthenticating]);
-
   const authenticate = async () => {
     if (isAuthenticating) return;
 
     setIsAuthenticating(true);
     setAuthError(null);
+    setHasAttemptedAuth(true);
 
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock your portfolio",
         fallbackLabel: isPasscodeEnabled ? "Use Passcode" : "",
         disableDeviceFallback: !isPasscodeEnabled,
+        cancelLabel: "Cancel",
       });
 
-      console.log("LockScreen: Biometric authentication result:", result);
+      // console.log("LockScreen: Biometric authentication result:", result);
 
       if (result.success) {
         onUnlock();

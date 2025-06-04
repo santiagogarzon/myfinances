@@ -56,9 +56,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         throw new Error('User must be logged in to add assets');
       }
 
-      console.log('addAsset: Starting to add asset for user:', user.uid);
-      console.log('addAsset: Asset details:', { symbol, quantity, type, buyPrice, currency, description });
-
       let priceData;
       if (type === 'cash') {
         if (!currency) throw new Error('Currency is required for cash assets');
@@ -83,9 +80,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       try {
         // Save to Firestore with retry
         const assetRef = doc(db, 'users', user.uid, 'assets', newAsset.id);
-        console.log('addAsset: Attempting to save to Firestore at path:', `users/${user.uid}/assets/${newAsset.id}`);
         await setDoc(assetRef, newAsset as DocumentData);
-        console.log('addAsset: Successfully saved to Firestore');
       } catch (firestoreError) {
         console.error('addAsset: Firestore write error:', firestoreError);
         // Even if Firestore fails, update local state
@@ -108,7 +103,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const totalValueUSD = calculateTotalValue(updatedAssets);
       const totalGainLoss = calculateTotalGainLoss(updatedAssets);
 
-      console.log('addAsset: Successfully added asset, updating local state');
       set((state) => ({
         assets: updatedAssets,
         totalValue: totalValueUSD,
@@ -132,12 +126,29 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const user = useAuthStore.getState().user;
       
       if (!user) {
+        console.error('removeAsset: No user found - user must be logged in');
         throw new Error('User must be logged in to remove assets');
       }
 
-      // Delete from Firestore
-      const assetRef = doc(db, 'users', user.uid, 'assets', id);
-      await deleteDoc(assetRef);
+      try {
+        // Delete from Firestore
+        const assetRef = doc(db, 'users', user.uid, 'assets', id);
+        await deleteDoc(assetRef);
+      } catch (firestoreError) {
+        console.error('removeAsset: Firestore delete error:', firestoreError);
+        // Even if Firestore fails, update local state
+        const updatedAssets = get().assets.filter(asset => asset.id !== id);
+        const totalValueUSD = calculateTotalValue(updatedAssets);
+        const totalGainLoss = calculateTotalGainLoss(updatedAssets);
+
+        set((state) => ({
+          assets: updatedAssets,
+          totalValue: totalValueUSD,
+          totalGainLoss,
+          isLoading: false,
+        }));
+        return;
+      }
 
       // Update local state
       const updatedAssets = get().assets.filter(asset => asset.id !== id);
@@ -163,6 +174,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const user = useAuthStore.getState().user;
       
       if (!user) {
+        console.error('updateAsset: No user found - user must be logged in');
         throw new Error('User must be logged in to update assets');
       }
 
@@ -170,19 +182,21 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const assetIndex = assets.findIndex(asset => asset.id === id);
       
       if (assetIndex === -1) {
-        throw new Error('Asset not found');
+        console.error('updateAsset: Asset with id not found:', id);
+        throw new Error('Asset not found.');
       }
 
       const asset = assets[assetIndex];
       let priceData;
 
-      // Filter out undefined values from updates
-      const filteredUpdates: any = {};
-      for (const key in updates) {
-        if (updates[key as keyof typeof updates] !== undefined) {
-          filteredUpdates[key] = updates[key as keyof typeof updates];
-        }
-      }
+      const filteredUpdates = {
+        ...updates,
+        symbol: updates.symbol ? ensureString(updates.symbol) : undefined,
+        currency: updates.currency ? ensureString(updates.currency) : undefined,
+        name: updates.type === "cash" && (updates.currency || updates.symbol)
+          ? `${updates.quantity || asset.quantity} ${ensureString(updates.currency || updates.symbol || '').toUpperCase()}`
+          : updates.name || asset.name,
+      };
 
       // Fetch updated price data if symbol or type changed in filteredUpdates
       if (filteredUpdates.symbol || filteredUpdates.type) {
@@ -197,13 +211,13 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
           const currencyToFetch = filteredUpdates.currency || filteredUpdates.symbol || asset.currency!;
            // Only fetch if currency has changed or was just provided
           if (currencyToFetch && currencyToFetch !== asset.currency) {
-             priceData = await fetchExchangeRate(currencyToFetch);
+             priceData = await fetchExchangeRate(ensureString(currencyToFetch));
           }
         } else {
            const symbolToFetch = filteredUpdates.symbol || asset.symbol;
            // Only fetch if symbol has changed or type is changing from cash
            if (symbolToFetch && (symbolToFetch !== asset.symbol || asset.type === 'cash')){
-              priceData = await fetchAssetPrice(symbolToFetch, type);
+              priceData = await fetchAssetPrice(ensureString(symbolToFetch), type);
            }
         }
       }
@@ -214,9 +228,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         currentPrice: priceData?.price !== undefined ? priceData.price : asset.currentPrice,
         lastUpdated: priceData?.lastUpdated || asset.lastUpdated,
          // Ensure name is updated if symbol/currency changes, especially for cash
-        name: (filteredUpdates.type === 'cash' && (filteredUpdates.currency || filteredUpdates.symbol)) 
-           ? `${filteredUpdates.quantity || asset.quantity} ${(filteredUpdates.currency || filteredUpdates.symbol).toUpperCase()}`
-           : filteredUpdates.symbol || asset.name,
+        name: filteredUpdates.name,
       };
 
       // Update in Firestore - send only the filtered updates or the relevant fields
@@ -240,7 +252,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
        // Remove undefined from dataToUpdate before sending
        Object.keys(dataToUpdate).forEach(key => dataToUpdate[key] === undefined && delete dataToUpdate[key]);
 
-       console.log('PortfolioStore: updateDoc with data:', dataToUpdate);
       await updateDoc(assetRef, dataToUpdate);
 
       // Update local state
@@ -268,6 +279,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const user = useAuthStore.getState().user;
       
       if (!user) {
+        console.error('updatePrices: No user found - user must be logged in');
         throw new Error('User must be logged in to update prices');
       }
 
@@ -337,33 +349,21 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       const user = useAuthStore.getState().user;
       
       if (!user) {
-        console.log('loadAssets: No user found, clearing assets');
         set({ assets: [], totalValue: 0, totalGainLoss: 0, isLoading: false });
         return;
       }
-
-      console.log('loadAssets: Starting to load assets for user:', user.uid);
-      console.log('loadAssets: User email:', user.email);
 
       // Cleanup any existing listener
       get().cleanup();
 
       // Explicitly fetch all documents once using getDocs
       try {
-        console.log('loadAssets: Attempting explicit fetch of assets using getDocs...');
         const assetsRef = collection(db, 'users', user.uid, 'assets');
         const querySnapshot = await getDocs(assetsRef);
-        console.log('loadAssets: Explicit fetch found', querySnapshot.size, 'documents');
         
         const assets: Asset[] = [];
         querySnapshot.forEach((doc) => {
           const asset = doc.data() as Asset;
-          console.log('loadAssets: Explicit fetch - Found asset:', {
-            id: doc.id,
-            symbol: asset.symbol,
-            type: asset.type,
-            data: asset
-          });
           assets.push(asset);
         });
 
@@ -371,7 +371,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
           const totalValueUSD = calculateTotalValue(assets);
           const totalGainLoss = calculateTotalGainLoss(assets);
 
-          console.log('loadAssets: Updating state with', assets.length, 'assets from explicit fetch');
           set((state) => ({
             assets,
             totalValue: totalValueUSD,
@@ -379,13 +378,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
             isLoading: false,
           }));
         } else {
-          console.log('loadAssets: No assets found in explicit fetch');
-          set({ 
-            assets: [], 
-            totalValue: 0, 
-            totalGainLoss: 0, 
-            isLoading: false 
-          });
+          set({ assets: [], totalValue: 0, totalGainLoss: 0, isLoading: false });
         }
       } catch (fetchError) {
         console.error('loadAssets: Explicit fetch failed with error:', fetchError);
@@ -393,22 +386,6 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         console.error('loadAssets: Error message:', (fetchError as any).message);
         set({ error: (fetchError as Error).message, isLoading: false });
       }
-
-      console.log('loadAssets: Explicit fetch process complete. Final isLoading:', get().isLoading, 'assets.length:', get().assets.length);
-
-      // We are temporarily NOT setting up the real-time listener here
-      // so comment out the unsubscribe storing and listener setup below
-
-      // const assetsRef = collection(db, 'users', user.uid, 'assets');
-      // console.log('loadAssets: Setting up real-time listener...');
-      
-      // const unsubscribe = onSnapshot(assetsRef, 
-      //   (snapshot) => { /* ... snapshot handling ... */ },\
-      //   (error) => { /* ... error handling ... */ }\
-      // );
-
-      // Store unsubscribe function
-      // set({ unsubscribe });
     } catch (error) {
       console.error('loadAssets - Outer catch error:', error);
       console.error('loadAssets: Error code:', (error as any).code);
@@ -435,4 +412,10 @@ const calculateTotalGainLoss = (assets: Asset[]): number => {
     const gainLoss = (asset.currentPrice - asset.buyPrice) * asset.quantity;
     return total + gainLoss;
   }, 0);
+};
+
+// Helper function to ensure string type with undefined handling
+const ensureString = (value: string | number | undefined): string => {
+  if (value === undefined) return '';
+  return typeof value === "string" ? value : value.toString();
 };

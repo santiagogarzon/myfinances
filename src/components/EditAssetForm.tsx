@@ -91,13 +91,18 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
       onRequestClose={onClose}
     >
       <StyledView className="flex-1 bg-black/50 justify-center items-center p-4">
-        <StyledView className="bg-white dark:bg-gray-900 w-full max-w-md rounded-lg p-4">
+        <StyledView className="bg-white dark:bg-gray-800 w-full max-w-md rounded-lg p-4">
           <StyledView className="flex-row justify-between items-center mb-4">
-            <StyledText className="text-xl font-semibold text-dark dark:text-white">
+            <StyledText className="text-xl font-semibold text-gray-900 dark:text-white">
               Edit Asset
             </StyledText>
             <StyledTouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#6B7280" />
+              <Ionicons
+                name="close"
+                size={24}
+                color="#6B7280"
+                className="dark:text-gray-400"
+              />
             </StyledTouchableOpacity>
           </StyledView>
 
@@ -111,7 +116,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                   Symbol
                 </StyledText>
                 <StyledTextInput
-                  className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
+                  className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
                   placeholder={
                     assetType === "cash" ? "e.g., USD, EUR" : "e.g., AAPL, BTC"
                   }
@@ -121,7 +126,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                   autoCapitalize={assetType === "cash" ? "characters" : "none"}
                 />
                 {errors.symbol && (
-                  <StyledText className="text-danger text-sm mt-1">
+                  <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
                     {errors.symbol.message}
                   </StyledText>
                 )}
@@ -145,15 +150,15 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                   Quantity
                 </StyledText>
                 <StyledTextInput
-                  className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
-                  placeholder="e.g., 10"
+                  className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                  placeholder="e.g., 100"
                   placeholderTextColor="#9CA3AF"
                   onChangeText={onChange}
                   value={value}
                   keyboardType="decimal-pad"
                 />
                 {errors.quantity && (
-                  <StyledText className="text-danger text-sm mt-1">
+                  <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
                     {errors.quantity.message}
                   </StyledText>
                 )}
@@ -177,15 +182,15 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                   Buy Price
                 </StyledText>
                 <StyledTextInput
-                  className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
-                  placeholder="e.g., 150.25"
+                  className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
+                  placeholder="e.g., 150.50"
                   placeholderTextColor="#9CA3AF"
                   onChangeText={onChange}
                   value={value}
                   keyboardType="decimal-pad"
                 />
                 {errors.buyPrice && (
-                  <StyledText className="text-danger text-sm mt-1">
+                  <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
                     {errors.buyPrice.message}
                   </StyledText>
                 )}
@@ -208,15 +213,15 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                       onPress={() => onChange(type)}
                       className={`px-3 py-2 rounded-lg ${
                         value === type
-                          ? "bg-primary"
-                          : "bg-gray-100 dark:bg-gray-800"
+                          ? "bg-blue-600 dark:bg-blue-500"
+                          : "bg-gray-100 dark:bg-gray-700"
                       }`}
                     >
                       <StyledText
                         className={`${
                           value === type
                             ? "text-white"
-                            : "text-dark dark:text-white"
+                            : "text-gray-900 dark:text-white"
                         }`}
                       >
                         {type.toUpperCase()}
@@ -239,7 +244,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                     Currency
                   </StyledText>
                   <StyledTextInput
-                    className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
+                    className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
                     placeholder="e.g., USD"
                     placeholderTextColor="#9CA3AF"
                     onChangeText={onChange}
@@ -247,7 +252,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                     autoCapitalize="characters"
                   />
                   {errors.currency && (
-                    <StyledText className="text-danger text-sm mt-1">
+                    <StyledText className="text-red-600 dark:text-red-400 text-sm mt-1">
                       {errors.currency.message}
                     </StyledText>
                   )}
@@ -265,7 +270,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
                   Description (Optional)
                 </StyledText>
                 <StyledTextInput
-                  className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg text-dark dark:text-white"
+                  className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-gray-900 dark:text-white"
                   placeholder="e.g., Robinhood account, Bank of America savings"
                   placeholderTextColor="#9CA3AF"
                   onChangeText={onChange}
@@ -281,7 +286,7 @@ export const EditAssetForm: React.FC<EditAssetFormProps> = ({
 
           <StyledTouchableOpacity
             onPress={handleSubmit(onSubmit)}
-            className="bg-primary p-3 rounded-lg flex-row justify-center items-center"
+            className="bg-blue-600 dark:bg-blue-500 p-3 rounded-lg flex-row justify-center items-center"
             disabled={isSubmitting}
           >
             {isSubmitting ? (

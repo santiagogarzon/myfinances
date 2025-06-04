@@ -4,11 +4,11 @@ import {
   Text,
   ScrollView,
   RefreshControl,
-  ActivityIndicator,
   TouchableOpacity,
   Animated,
-  Image,
-  StyleSheet,
+  Platform,
+  Dimensions,
+  useColorScheme,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { usePortfolioStore } from "../store/portfolioStore";
@@ -27,6 +27,10 @@ import { styled } from "nativewind";
 import { useAuthStore } from "../store/authStore";
 import { Easing } from "react-native";
 import { formatCurrency } from "../utils/formatUtils";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { FinancialInsights } from "../components/FinancialInsights";
+import LottieView from "lottie-react-native";
 
 // Add nativewind types to React Native components
 const StyledView = styled(View);
@@ -62,9 +66,11 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [isChartExpanded, setIsChartExpanded] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
+  const colorScheme = useColorScheme();
 
   // Show loading state only when refreshing after initial load OR initial load with no assets
-  const showLoading = isLoading || isRefreshing;
+  const showLoading = isLoading;
 
   const progressAnim = useRef(new Animated.Value(0)).current; // Initial value for progress animation
   const rotateAnim = useRef(new Animated.Value(0)).current; // Initial value for opacity: 0
@@ -111,35 +117,86 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
     outputRange: ["0%", "100%"], // Animate width from 0% to 100%
   });
 
-  // Add effect to load assets when component mounts or user changes
+  const registerForPushNotificationsAsync = async () => {
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        alert("Failed to get push token for push notification!");
+        return;
+      }
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log("Expo Push Token:", token);
+      // Here you would typically send the token to your backend server
+    } else {
+      console.log("Must use physical device for Push Notifications");
+    }
+
+    if (Platform.OS === "android") {
+      Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+  };
+
+  // Handle notification responses
   useEffect(() => {
-    const initializeAssets = async () => {
-      // Load assets if user is logged in, we haven't attempted to load yet, and store is not loading
-      if (user && !hasAttemptedLoad && !isLoading) {
-        console.log("HomeScreen: Loading assets for user:", user.uid);
-        try {
-          await loadAssets();
-          console.log(
-            "HomeScreen: loadAssets completed. isLoading:",
-            portfolio.isLoading,
-            "assets.length:",
-            assets.length
-          );
-          setHasAttemptedLoad(true);
-        } catch (error) {
-          console.error("HomeScreen: Failed to load assets:", error);
-          Toast.show({
-            type: "error",
-            text1: "Error",
-            text2: "Failed to load your assets. Please try again.",
-          });
-          setHasAttemptedLoad(true);
-        }
+    const handleLastNotificationResponse = async () => {
+      const lastNotificationResponse =
+        await Notifications.getLastNotificationResponseAsync(); // Await the promise
+      if (lastNotificationResponse) {
+        // console.log("Last notification response:", lastNotificationResponse);
+        // You might want to navigate the user based on the notification data
       }
     };
 
-    initializeAssets();
-  }, [user, isLoading, loadAssets, hasAttemptedLoad]);
+    handleLastNotificationResponse();
+
+    const responseListener =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        // console.log("Notification response received:", response);
+        // Handle notification response when the app is open
+      });
+
+    const notificationListener = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        // console.log("Notification received:", notification);
+        // Handle received notification when the app is in the foreground
+      }
+    );
+
+    // console.log("HomeScreen: Setting up notification listeners");
+
+    return () => {
+      responseListener.remove();
+      notificationListener.remove();
+      // console.log("HomeScreen: Removing notification listeners");
+    };
+  }, []);
+
+  // Initial load and data fetching logic
+  useEffect(() => {
+    if (!hasAttemptedLoad && user) {
+      // console.log("HomeScreen: Loading assets for user:", user.uid);
+      loadAssets();
+      setHasAttemptedLoad(true);
+    }
+  }, [user, hasAttemptedLoad, loadAssets]);
+
+  // Effect for registering for push notifications
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Effect for handling notifications
 
   // Cleanup effect
   useEffect(() => {
@@ -152,7 +209,7 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
     if (error) {
       Toast.show({
         type: "error",
-        text1: "Error",
+        text1: "Portfolio Error",
         text2: error,
       });
     }
@@ -174,60 +231,98 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
-  console.log("HomeScreen: Rendering main content");
-
-  if (showLoading) {
+  // Full screen loader component
+  const FullScreenLoader = () => {
+    const screenWidth = Dimensions.get("window").width;
+    const screenHeight = Dimensions.get("window").height;
+    const animationSize = Math.min(screenWidth, screenHeight) * 0.8;
     return (
-      <StyledView className="flex-1 justify-center items-center bg-black">
-        <StyledView className="w-3/4 h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: "#34D399", // A green color for the progress bar
-                width: progressWidth,
-              },
-            ]}
+      <StyledView
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor:
+            colorScheme === "dark"
+              ? "#1F2937" // Solid gray-800
+              : "#FFFFFF", // Solid white
+        }}
+      >
+        <StyledView
+          style={{
+            width: animationSize,
+            height: animationSize,
+            backgroundColor: "transparent",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../assets/loading-animation.json")}
+            autoPlay
+            loop
+            style={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: "transparent",
+            }}
           />
         </StyledView>
-        <StyledText className="text-white text-lg">
-          Loading Portfolio...
-        </StyledText>
       </StyledView>
     );
-  }
+  };
+
+  if (showLoading && !isRefreshing) return <FullScreenLoader />;
 
   // Show empty state if not loading and no assets
   if (!showLoading && assets.length === 0) {
     return (
-      <StyledView className="flex-1 bg-gray-50 dark:bg-gray-900 justify-center items-center px-4">
-        <Ionicons name="wallet-outline" size={64} color="#6B7280" />
-        <StyledText className="text-gray-500 dark:text-gray-400 text-center mt-4 text-lg">
-          Your portfolio is empty.
-        </StyledText>
-        <StyledText className="text-gray-500 dark:text-gray-400 text-center mt-2 mb-4">
-          Add your first asset to get started!
-        </StyledText>
-        <AddAssetForm />
+      <StyledView className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <StyledView className="flex-1 justify-center items-center px-4">
+          <StyledView className="items-center mb-8">
+            <Ionicons
+              name="wallet-outline"
+              size={64}
+              color="#6B7280"
+              className="dark:text-gray-400"
+            />
+            <StyledText className="text-gray-500 dark:text-gray-400 text-center mt-4 text-lg">
+              Your portfolio is empty.
+            </StyledText>
+            <StyledText className="text-gray-500 dark:text-gray-400 text-center mt-2">
+              Add your first asset to get started!
+            </StyledText>
+          </StyledView>
+          <StyledView className="w-full">
+            <AddAssetForm />
+          </StyledView>
+        </StyledView>
       </StyledView>
     );
   }
 
   return (
     <StyledView className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <StyledView className="flex-row justify-between items-center px-4 pt-12 pb-4">
+      <StyledView className="flex-row justify-between items-center px-4 pt-12 pb-4 bg-white dark:bg-gray-800">
         <StyledView className="mt-4">
-          <StyledText className="text-2xl font-bold text-dark dark:text-white">
+          <StyledText className="text-2xl font-bold text-gray-900 dark:text-white">
             Portfolio Value
           </StyledText>
-          <StyledText className="text-4xl font-bold text-primary mt-2">
+          <StyledText className="text-4xl font-bold text-blue-600 dark:text-blue-400 mt-2">
             {formatCurrency(totalValue)}
           </StyledText>
           {assets.length > 0 && (
             <StyledView className="flex-row items-center mt-1">
               <StyledText
                 className={`text-lg font-semibold ${
-                  totalGainLoss >= 0 ? "text-success" : "text-danger"
+                  totalGainLoss >= 0
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
                 }`}
               >
                 {totalGainLoss >= 0 ? "+" : ""}
@@ -247,18 +342,63 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
           onPress={() => navigation.navigate("SettingsModal")}
           className="mt-4"
         >
-          <Ionicons name="settings-outline" size={24} color="#1F2937" />
+          <Ionicons
+            name="settings-outline"
+            size={24}
+            color="#1F2937"
+            className="dark:text-gray-200"
+          />
         </StyledTouchableOpacity>
       </StyledView>
-
       <StyledScrollView
-        className="flex-1 px-4"
+        className="flex-1 bg-gray-100 dark:bg-gray-900 px-4 mt-4"
         refreshControl={
-          <RefreshControl refreshing={showLoading} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={Platform.OS === "ios" ? "#6B7280" : undefined}
+            colors={Platform.OS === "android" ? ["#6B7280"] : undefined}
+          />
         }
       >
         <AddAssetForm />
-
+        {/* Financial Insights Section */}
+        {assets.length > 0 && (
+          <StyledView className="mb-2">
+            <StyledTouchableOpacity
+              onPress={() => setShowInsights(!showInsights)}
+              className="flex-row justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-2"
+            >
+              <StyledView className="flex-row items-center">
+                <Ionicons
+                  name="analytics-outline"
+                  size={24}
+                  color="#6B7280"
+                  className="dark:text-gray-400"
+                />
+                <StyledText className="text-lg font-semibold text-gray-900 dark:text-white ml-2">
+                  Financial Insights
+                </StyledText>
+              </StyledView>
+              <Ionicons
+                name={
+                  showInsights ? "chevron-up-outline" : "chevron-down-outline"
+                }
+                size={24}
+                color="#6B7280"
+                className="dark:text-gray-400"
+              />
+            </StyledTouchableOpacity>
+            {showInsights && (
+              <View className="mt-2 mx-2">
+                <ErrorBoundary fallback={<ChartErrorFallback />}>
+                  <FinancialInsights assets={assets} />
+                </ErrorBoundary>
+              </View>
+            )}
+          </StyledView>
+        )}
+        {/* Portfolio Chart Section */}
         {assets.length > 0 && (
           <StyledView className="mb-4">
             <StyledTouchableOpacity
@@ -266,8 +406,13 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
               className="flex-row justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-2"
             >
               <StyledView className="flex-row items-center">
-                <Ionicons name="pie-chart-outline" size={24} color="#6B7280" />
-                <StyledText className="text-lg font-semibold text-dark dark:text-white ml-2">
+                <Ionicons
+                  name="pie-chart-outline"
+                  size={24}
+                  color="#6B7280"
+                  className="dark:text-gray-400"
+                />
+                <StyledText className="text-lg font-semibold text-gray-900 dark:text-white ml-2">
                   Portfolio Distribution
                 </StyledText>
               </StyledView>
@@ -279,9 +424,9 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
                 }
                 size={24}
                 color="#6B7280"
+                className="dark:text-gray-400"
               />
             </StyledTouchableOpacity>
-
             {isChartExpanded && (
               <ErrorBoundary fallback={<ChartErrorFallback />}>
                 <PortfolioChart assets={assets} />
@@ -289,9 +434,8 @@ export const HomeScreen: React.FC<Props> = ({ route }) => {
             )}
           </StyledView>
         )}
-
         <StyledView className="mb-4">
-          <StyledText className="text-xl font-semibold text-dark dark:text-white mb-2">
+          <StyledText className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Your Assets
           </StyledText>
           {assets.length === 0 ? (

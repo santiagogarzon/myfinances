@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { styled } from "nativewind";
 import { useSettingsStore } from "../store/settingsStore";
@@ -54,6 +56,7 @@ const StyledTextInput = styled(TextInput);
 const StyledTouchableOpacity = styled(TouchableOpacity) as React.ComponentType<
   React.ComponentProps<typeof TouchableOpacity> & { className?: string }
 >;
+const StyledKeyboardAvoidingView = styled(KeyboardAvoidingView);
 
 interface PasscodeSetupProps {
   onUnlock?: () => void; // Optional prop for verification mode (when used by LockScreen)
@@ -136,86 +139,94 @@ export const PasscodeSetup: React.FC<PasscodeSetupProps> = ({
 
   return (
     <StyledView className="flex-1 bg-gray-900 justify-center items-center p-6">
-      <StyledText className="text-white text-2xl font-bold mb-8">
-        {intendedAction === "setup"
-          ? "Set Your Passcode"
-          : intendedAction === "change"
-          ? "Verify Current Passcode"
-          : "Enter Your Passcode"}
-      </StyledText>
-      <StyledTextInput
-        className="w-full p-4 bg-gray-800 rounded-lg text-white text-lg text-center mb-4"
-        placeholder="Enter Passcode"
-        placeholderTextColor="#6B7280"
-        keyboardType="number-pad"
-        secureTextEntry
-        maxLength={6} // Common passcode length
-        value={passcode}
-        onChangeText={(text) => setPasscodeState(text.replace(/[^0-9]/g, ""))} // Allow only numeric input
-      />
-      {intendedAction === "setup" && (
+      <StyledKeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1, width: "100%" }}
+        keyboardVerticalOffset={0}
+      >
+        <StyledText className="text-white text-2xl font-bold mb-8">
+          {intendedAction === "setup"
+            ? "Set Your Passcode"
+            : intendedAction === "change"
+            ? "Verify Current Passcode"
+            : "Enter Your Passcode"}
+        </StyledText>
         <StyledTextInput
-          className="w-full p-4 bg-gray-800 rounded-lg text-white text-lg text-center mb-6"
-          placeholder="Confirm Passcode"
+          className="w-full p-4 bg-gray-800 rounded-lg text-white text-lg text-center mb-4"
+          placeholder="Enter Passcode"
           placeholderTextColor="#6B7280"
           keyboardType="number-pad"
           secureTextEntry
-          maxLength={6}
-          value={confirmPasscode}
-          onChangeText={(text) =>
-            setConfirmPasscode(text.replace(/[^0-9]/g, ""))
-          } // Allow only numeric input
+          maxLength={6} // Common passcode length
+          value={passcode}
+          onChangeText={(text) => setPasscodeState(text.replace(/[^0-9]/g, ""))} // Allow only numeric input
         />
-      )}
+        {intendedAction === "setup" && (
+          <StyledTextInput
+            className="w-full p-4 bg-gray-800 rounded-lg text-white text-lg text-center mb-6"
+            placeholder="Confirm Passcode"
+            placeholderTextColor="#6B7280"
+            keyboardType="number-pad"
+            secureTextEntry
+            maxLength={6}
+            value={confirmPasscode}
+            onChangeText={(text) =>
+              setConfirmPasscode(text.replace(/[^0-9]/g, ""))
+            } // Allow only numeric input
+          />
+        )}
 
-      {error && <StyledText className="text-danger mb-4">{error}</StyledText>}
+        {error && <StyledText className="text-danger mb-4">{error}</StyledText>}
 
-      <StyledTouchableOpacity
-        onPress={
-          intendedAction === "setup" ? handleSetPasscode : handleVerifyPasscode
-        }
-        className="w-full p-4 bg-primary rounded-lg mb-4"
-        onPressIn={() =>
-          console.log(
-            "PasscodeSetup: Primary button pressed. intendedAction =",
-            intendedAction,
-            "Calling:",
+        <StyledTouchableOpacity
+          onPress={
             intendedAction === "setup"
-              ? "handleSetPasscode"
-              : "handleVerifyPasscode"
-          )
-        }
-      >
-        <StyledText className="text-white text-lg font-semibold text-center">
-          {intendedAction === "setup"
-            ? "Set Passcode"
-            : intendedAction === "change"
-            ? "Verify"
-            : "Unlock"}
-        </StyledText>
-      </StyledTouchableOpacity>
-
-      {intendedAction === "verify" && (
-        <StyledTouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="w-full p-4 rounded-lg border border-gray-600"
+              ? handleSetPasscode
+              : handleVerifyPasscode
+          }
+          className="w-full p-4 bg-primary rounded-lg mb-4"
+          onPressIn={() =>
+            console.log(
+              "PasscodeSetup: Primary button pressed. intendedAction =",
+              intendedAction,
+              "Calling:",
+              intendedAction === "setup"
+                ? "handleSetPasscode"
+                : "handleVerifyPasscode"
+            )
+          }
         >
-          <StyledText className="text-gray-300 text-lg font-semibold text-center">
-            Cancel
+          <StyledText className="text-white text-lg font-semibold text-center">
+            {intendedAction === "setup"
+              ? "Set Passcode"
+              : intendedAction === "change"
+              ? "Verify"
+              : "Unlock"}
           </StyledText>
         </StyledTouchableOpacity>
-      )}
 
-      {intendedAction === "setup" && (
-        <StyledTouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="w-full p-4 rounded-lg border border-gray-600 mt-2"
-        >
-          <StyledText className="text-gray-300 text-lg font-semibold text-center">
-            Cancel
-          </StyledText>
-        </StyledTouchableOpacity>
-      )}
+        {intendedAction === "verify" && (
+          <StyledTouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="w-full p-4 rounded-lg border border-gray-600"
+          >
+            <StyledText className="text-gray-300 text-lg font-semibold text-center">
+              Cancel
+            </StyledText>
+          </StyledTouchableOpacity>
+        )}
+
+        {intendedAction === "setup" && (
+          <StyledTouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="w-full p-4 rounded-lg border border-gray-600 mt-2"
+          >
+            <StyledText className="text-gray-300 text-lg font-semibold text-center">
+              Cancel
+            </StyledText>
+          </StyledTouchableOpacity>
+        )}
+      </StyledKeyboardAvoidingView>
     </StyledView>
   );
 };
@@ -223,3 +234,4 @@ export const PasscodeSetup: React.FC<PasscodeSetupProps> = ({
 const styles = StyleSheet.create({
   // Styles handled by NativeWind
 });
+ 

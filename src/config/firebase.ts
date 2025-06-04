@@ -19,7 +19,7 @@ const firebaseConfig = {
 let app;
 try {
   app = initializeApp(firebaseConfig);
-} catch (error) {
+} catch (error: any) {
   // If Firebase is already initialized, get the existing app
   if (error.code === 'app/duplicate-app') {
     app = getApp();
@@ -37,4 +37,4 @@ const auth = initializeAuth(app, {
 // Initialize Firestore
 const db = getFirestore(app);
 
-export { auth, db, app }; 
+export { auth, db, app };

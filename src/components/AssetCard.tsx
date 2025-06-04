@@ -46,18 +46,17 @@ export const AssetCard: React.FC<AssetCardProps> = ({
     <>
       <StyledTouchableOpacity
         onPress={() => {
-          console.log("AssetCard: Toggle expand pressed for asset:", asset.id);
           onToggleExpand();
         }}
-        className={`bg-white py-2 px-4 rounded-lg shadow-sm mb-3 border-l-4 ${
+        className={`bg-white dark:bg-gray-800 py-2 px-4 rounded-lg shadow-sm mb-3 border-l-4 ${
           (asset.currentPrice - asset.buyPrice) * asset.quantity >= 0
-            ? "border-success"
-            : "border-danger"
+            ? "border-green-500 dark:border-green-400"
+            : "border-red-500 dark:border-red-400"
         }`}
       >
         <StyledView className="flex-row justify-between items-center">
           <StyledView className="flex-row items-baseline">
-            <StyledText className="text-lg font-semibold text-dark dark:text-white">
+            <StyledText className="text-lg font-semibold text-gray-900 dark:text-white">
               {asset.name}
             </StyledText>
             <StyledText className="text-sm text-gray-500 dark:text-gray-400 ml-2">
@@ -67,16 +66,20 @@ export const AssetCard: React.FC<AssetCardProps> = ({
           <StyledView className="flex-row items-center">
             <StyledTouchableOpacity
               onPress={(e) => {
-                e.stopPropagation(); // Prevent the parent TouchableOpacity from triggering
-                // Measure the position of the options button
+                e.stopPropagation();
                 e.target.measure((x, y, width, height, pageX, pageY) => {
-                  setOptionsPosition({ top: pageY + height, right: 10 }); // Position below and slightly from the right edge
+                  setOptionsPosition({ top: pageY + height, right: 10 });
                 });
                 setShowOptions(!showOptions);
               }}
               className="p-1"
             >
-              <Ionicons name="ellipsis-vertical" size={24} color="#6B7280" />
+              <Ionicons
+                name="ellipsis-vertical"
+                size={24}
+                color="#6B7280"
+                className="dark:text-gray-400"
+              />
             </StyledTouchableOpacity>
             <StyledView className="p-1 ml-2">
               <Ionicons
@@ -85,6 +88,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 }
                 size={24}
                 color="#6B7280"
+                className="dark:text-gray-400"
               />
             </StyledView>
           </StyledView>
@@ -101,7 +105,9 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                     100
                   : 0;
               const isGain = gainLoss >= 0;
-              const gainLossColor = isGain ? "text-success" : "text-danger";
+              const gainLossColor = isGain
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400";
 
               return (
                 <StyledView className="flex-col">
@@ -122,7 +128,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
               <StyledText className="text-gray-500 dark:text-gray-400 text-sm">
                 Total Value
               </StyledText>
-              <StyledText className="text-primary font-semibold text-base">
+              <StyledText className="text-blue-600 dark:text-blue-400 font-semibold text-base">
                 {formatCurrencyForCard(totalValue)}
               </StyledText>
             </StyledView>
@@ -143,7 +149,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 <StyledText className="text-gray-500 dark:text-gray-400">
                   Quantity
                 </StyledText>
-                <StyledText className="text-dark dark:text-white">
+                <StyledText className="text-gray-900 dark:text-white">
                   {asset.quantity}
                 </StyledText>
               </StyledView>
@@ -152,7 +158,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                   <StyledText className="text-gray-500 dark:text-gray-400">
                     Current Price
                   </StyledText>
-                  <StyledText className="text-dark dark:text-white">
+                  <StyledText className="text-gray-900 dark:text-white">
                     {formatCurrency(asset.currentPrice)}
                   </StyledText>
                 </StyledView>
@@ -162,7 +168,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                   <StyledText className="text-gray-500 dark:text-gray-400">
                     Exchange Rate (to USD)
                   </StyledText>
-                  <StyledText className="text-dark dark:text-white">
+                  <StyledText className="text-gray-900 dark:text-white">
                     {`1 ${asset.currency} = ${formatCurrency(
                       asset.currentPrice
                     )}`}
@@ -173,7 +179,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 <StyledText className="text-gray-500 dark:text-gray-400">
                   Buy Price
                 </StyledText>
-                <StyledText className="text-dark dark:text-white">
+                <StyledText className="text-gray-900 dark:text-white">
                   {formatCurrency(asset.buyPrice)}
                 </StyledText>
               </StyledView>
@@ -184,8 +190,8 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 <StyledText
                   className={`font-semibold ${
                     (asset.currentPrice - asset.buyPrice) * asset.quantity >= 0
-                      ? "text-success"
-                      : "text-danger"
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
                   }`}
                 >
                   {formatCurrencyForCard(
@@ -202,7 +208,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 <StyledText className="text-gray-500 dark:text-gray-400">
                   Total Value
                 </StyledText>
-                <StyledText className="text-primary font-semibold text-base">
+                <StyledText className="text-blue-600 dark:text-blue-400 font-semibold text-base">
                   {formatCurrencyForCard(totalValue)}
                 </StyledText>
               </StyledView>
@@ -217,7 +223,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
 
       {/* Modal for Options Menu */}
       <Modal
-        visible={showOptions} // Only show modal for options
+        visible={showOptions}
         transparent
         animationType="fade"
         onRequestClose={() => setShowOptions(false)}
@@ -239,8 +245,13 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 }}
                 className="flex-row items-center py-2 px-3"
               >
-                <Ionicons name="pencil-outline" size={20} color="#6B7280" />
-                <StyledText className="text-dark dark:text-white ml-2">
+                <Ionicons
+                  name="pencil-outline"
+                  size={20}
+                  color="#6B7280"
+                  className="dark:text-gray-400"
+                />
+                <StyledText className="text-gray-900 dark:text-white ml-2">
                   Edit
                 </StyledText>
               </StyledTouchableOpacity>
@@ -251,15 +262,22 @@ export const AssetCard: React.FC<AssetCardProps> = ({
                 }}
                 className="flex-row items-center py-2 px-3"
               >
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                <StyledText className="text-danger ml-2">Delete</StyledText>
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color="#EF4444"
+                  className="dark:text-red-400"
+                />
+                <StyledText className="text-red-600 dark:text-red-400 ml-2">
+                  Delete
+                </StyledText>
               </StyledTouchableOpacity>
             </StyledView>
           )}
         </StyledTouchableOpacity>
       </Modal>
 
-      {/* Edit Asset Form Modal (remains separate) */}
+      {/* Edit Asset Form Modal */}
       <EditAssetForm
         asset={asset}
         visible={showEditModal}
