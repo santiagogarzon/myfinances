@@ -9,6 +9,7 @@ import {
   TouchableOpacity as RNTouchableOpacity,
   Dimensions,
   useColorScheme,
+  StyleSheet,
 } from "react-native";
 import { useAuthStore } from "../store/authStore";
 import { LoginScreen } from "../screens/LoginScreen";
@@ -18,38 +19,33 @@ import { RootStackParamList, NavigationRef } from "../types/navigation";
 import { useSettingsStore } from "../store/settingsStore";
 import { styled } from "nativewind";
 import SettingsModal from "../components/SettingsModal";
-import { Easing, Animated } from "react-native";
 import { LockScreen } from "../components/LockScreen";
-import { PasscodeSetup } from "../components/PasscodeSetup";
-import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import { notificationService } from "../services/notificationService";
 import Toast from "react-native-toast-message";
 import { NavigationProp, ParamListBase } from "@react-navigation/native";
+import { BlurView } from "expo-blur";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const StyledView = styled(View);
-const StyledText = styled(Text);
-const StyledTouchableOpacity = styled(RNTouchableOpacity);
+const StyledBlurView = styled(BlurView);
 
 export const AppNavigator: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuthStore();
-  const { loadSettings, privacyMode, isBiometricEnabled, isPasscodeEnabled } =
-    useSettingsStore();
+  const { loadSettings, privacyMode, isBiometricEnabled } = useSettingsStore();
   const [isReady, setIsReady] = useState(false);
   const navigationRef = React.useRef<NavigationRef>(null);
   const [isLocked, setIsLocked] = useState(false);
-  const [showingPasscodeInput, setShowingPasscodeInput] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
   const [lastUnlockTime, setLastUnlockTime] = useState<number | null>(null);
+  const [isInBackground, setIsInBackground] = useState(false);
   const colorScheme = useColorScheme();
 
   // Initialize app state
   React.useEffect(() => {
     const initialize = async () => {
       try {
-        // console.log("AppNavigator: Initializing...");
         await loadSettings();
         setIsReady(true);
         setSettingsLoaded(true);
@@ -60,95 +56,115 @@ export const AppNavigator: React.FC = () => {
     initialize();
   }, []);
 
+  // Handle app state changes
   React.useEffect(() => {
-    // console.log("AppNavigator - Auth State:", {
-    //   isReady,
-    //   isAuthLoading,
-    //   hasUser: !!user,
-    //   userId: user?.uid,
-    // });
-  }, [isReady, user, isAuthLoading]);
-
-  // Handle app state changes for privacy mode
-  React.useEffect(() => {
-    let lockTimeout: NodeJS.Timeout;
-
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      // console.log("AppNavigator: App state changed from", appState, "to", nextAppState);
-      if (appState.match(/inactive|background/) && nextAppState === "active") {
-        // App has come to the foreground
-        if (user && privacyMode !== "off") {
-          // Clear any existing timeout
-          if (lockTimeout) {
-            clearTimeout(lockTimeout);
-          }
-
-          // Only lock if it's been more than 2000ms since last unlock
-          if (lastUnlockTime && Date.now() - lastUnlockTime > 2000) {
-            setIsLocked(true);
-          }
-        }
-      } else if (nextAppState.match(/inactive|background/)) {
-        // App is going to background, clear the timeout and set last active time
-        if (lockTimeout) {
-          clearTimeout(lockTimeout);
-        }
-        // Set a timeout to lock after 2000ms of inactivity
-        lockTimeout = setTimeout(() => {
-          if (user && privacyMode !== "off") {
-            setIsLocked(true);
-          }
-        }, 2000);
-      }
-      setAppState(nextAppState);
-    };
-
     const subscription = AppState.addEventListener(
       "change",
-      handleAppStateChange
+      (nextAppState: AppStateStatus) => {
+        console.log("AppNavigator: App state changed", {
+          from: appState,
+          to: nextAppState,
+          lastUnlockTime,
+          timeSinceUnlock: lastUnlockTime ? Date.now() - lastUnlockTime : null,
+          privacyMode,
+          isLocked,
+          user: !!user,
+          settingsLoaded,
+        });
+
+        // Only handle state changes if we have a user and settings are loaded
+        if (!user || !settingsLoaded) {
+          console.log(
+            "AppNavigator: Skipping state change - no user or settings not loaded"
+          );
+          return;
+        }
+
+        // Update background state
+        setIsInBackground(
+          nextAppState === "background" || nextAppState === "inactive"
+        );
+
+        // Don't lock if we just unlocked (within the last 2 seconds)
+        const justUnlocked =
+          lastUnlockTime && Date.now() - lastUnlockTime < 2000;
+
+        if (nextAppState === "active" && appState !== "active") {
+          if (isBiometricEnabled && !justUnlocked) {
+            setIsLocked(true);
+          }
+        } else if (nextAppState === "background" && appState !== "background") {
+          if (isBiometricEnabled && !justUnlocked) {
+            setIsLocked(true);
+          }
+        } else if (nextAppState === "inactive" && appState !== "inactive") {
+          if (isBiometricEnabled && !justUnlocked) {
+            setIsLocked(true);
+          }
+        }
+        setAppState(nextAppState);
+      }
     );
 
     return () => {
       subscription.remove();
-      if (lockTimeout) {
-        clearTimeout(lockTimeout);
-      }
     };
-  }, [appState, user, privacyMode, lastUnlockTime]);
+  }, [appState, user, privacyMode, settingsLoaded, lastUnlockTime]);
 
   // Determine if the app should be locked on initial load
   React.useEffect(() => {
+    console.log("AppNavigator: Checking initial lock state", {
+      settingsLoaded,
+      user: !!user,
+      isBiometricEnabled,
+      lastUnlockTime,
+      currentLockState: isLocked,
+    });
+
     if (settingsLoaded && user) {
-      const shouldBeLocked =
-        privacyMode !== "off" && (isBiometricEnabled || isPasscodeEnabled);
-      if (privacyMode !== "off" && !lastUnlockTime) {
+      const shouldBeLocked = isBiometricEnabled;
+      console.log("AppNavigator: Should be locked?", {
+        shouldBeLocked,
+        reason: "Initial load with biometrics enabled",
+      });
+
+      if (!lastUnlockTime) {
+        console.log(
+          "AppNavigator: Setting initial lock state to:",
+          shouldBeLocked
+        );
         setIsLocked(shouldBeLocked);
       }
     } else if (!user) {
-      // If user logs out, ensure it's not locked and reset states
+      console.log("AppNavigator: User logged out, resetting lock state");
       setIsLocked(false);
-      setShowingPasscodeInput(false);
       setLastUnlockTime(null);
     }
+  }, [user, privacyMode, isBiometricEnabled, settingsLoaded, lastUnlockTime]);
+
+  // Add a debug effect to monitor lock state changes
+  React.useEffect(() => {
+    console.log("AppNavigator: Lock state changed", {
+      isLocked,
+      isBiometricEnabled,
+      user: !!user,
+      settingsLoaded,
+      lastUnlockTime,
+      appState,
+    });
   }, [
-    user,
-    privacyMode,
+    isLocked,
     isBiometricEnabled,
-    isPasscodeEnabled,
+    user,
     settingsLoaded,
     lastUnlockTime,
+    appState,
   ]);
 
   const handleUnlock = () => {
+    console.log("AppNavigator: Unlocking app");
     setIsLocked(false);
-    setShowingPasscodeInput(false);
     setLastUnlockTime(Date.now());
-    // console.log("AppNavigator: App unlocked");
-  };
-
-  const handleShowPasscode = () => {
-    setShowingPasscodeInput(true);
-    // console.log("AppNavigator: Showing passcode input");
   };
 
   // Set up notification listeners
@@ -258,6 +274,17 @@ export const AppNavigator: React.FC = () => {
     );
   }
 
+  // Log the final render state
+  console.log("AppNavigator: Rendering with state", {
+    isLocked,
+    isBiometricEnabled,
+    user: !!user,
+    settingsLoaded,
+    appState,
+    lastUnlockTime,
+    isInBackground,
+  });
+
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
@@ -266,61 +293,60 @@ export const AppNavigator: React.FC = () => {
           animation: "fade",
         }}
       >
-        {!user ? (
-          // Auth Stack
+        {!isReady || isAuthLoading ? (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        ) : !user ? (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
           </>
-        ) : isLocked ? (
-          // Lock Stack
+        ) : (
           <>
-            {showingPasscodeInput ? (
-              <Stack.Screen
-                name="PasscodeSetup"
-                component={PasscodeSetup}
-                initialParams={{
-                  intendedAction: "verify",
-                  onUnlock: handleUnlock,
-                }}
-              />
-            ) : (
+            {isLocked ? (
               <Stack.Screen
                 name="Lock"
                 component={LockScreen}
                 initialParams={{
                   onUnlock: handleUnlock,
-                  onShowPasscode: handleShowPasscode,
+                  onShowPasscode: () => {
+                    console.log("AppNavigator: Showing passcode screen");
+                    navigationRef.current?.navigate("PasscodeSetup", {
+                      intendedAction: "verify",
+                      onUnlock: handleUnlock,
+                    });
+                  },
+                }}
+                options={{
+                  animation: "fade",
+                  presentation: "transparentModal",
+                  gestureEnabled: false,
                 }}
               />
+            ) : (
+              <>
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen
+                  name="SettingsModal"
+                  component={SettingsModal}
+                  options={{
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                  }}
+                />
+              </>
             )}
-          </>
-        ) : (
-          // Main App Stack
-          <>
-            <Stack.Screen
-              name="Home"
-              component={HomeScreen}
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="PasscodeSetup"
-              component={PasscodeSetup}
-              options={{ presentation: "modal" }}
-            />
-            <Stack.Screen
-              name="SettingsModal"
-              component={SettingsModal}
-              options={{
-                presentation: "modal",
-                headerShown: false, // Hide header for the modal itself
-              }}
-            />
           </>
         )}
       </Stack.Navigator>
+
+      {/* Blur overlay when app is in background */}
+      {isInBackground && user && !isLocked && (
+        <StyledBlurView
+          intensity={100}
+          tint={colorScheme === "dark" ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
     </NavigationContainer>
   );
 };

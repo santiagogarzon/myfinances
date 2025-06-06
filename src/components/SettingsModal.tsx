@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Modal,
   TouchableOpacity,
   Alert,
   ScrollView,
@@ -15,9 +14,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../store/authStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { useNavigation } from "@react-navigation/native";
-import { removePasscode } from "../utils/passcodeUtils";
 import * as LocalAuthentication from "expo-local-authentication";
 import Constants from "expo-constants";
+import { auth } from "../config/firebase";
+import {
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -26,13 +31,10 @@ const StyledScrollView = styled(ScrollView);
 const StyledKeyboardAvoidingView = styled(KeyboardAvoidingView);
 
 const SettingsModal: React.FC = () => {
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const {
     isBiometricEnabled,
     setBiometricEnabled,
-    isPasscodeEnabled,
-    setIsPasscodeEnabled,
-    privacyMode,
     setPrivacyMode,
     notificationPreferences,
     setNotificationPreference,
@@ -77,24 +79,102 @@ const SettingsModal: React.FC = () => {
     }
   };
 
-  const handleDisablePasscode = () => {
+  const handleDeleteAccount = async () => {
+    // First confirmation
     Alert.alert(
-      "Disable Passcode",
-      "Are you sure you want to disable your passcode? You will need to set it up again to use this feature.",
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.",
       [
-        { text: "Cancel", style: "cancel" },
         {
-          text: "Disable",
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await removePasscode();
-              setIsPasscodeEnabled(false);
-              Alert.alert("Success", "Passcode disabled.");
-            } catch (error) {
-              console.error("Failed to disable passcode:", error);
-              Alert.alert("Error", "Could not disable passcode.");
-            }
+          onPress: () => {
+            // Ask for password for reauthentication
+            Alert.prompt(
+              "Confirm Password",
+              "Please enter your password to confirm account deletion",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async (password) => {
+                    if (!password) {
+                      Alert.alert(
+                        "Error",
+                        "Password is required to delete account"
+                      );
+                      return;
+                    }
+
+                    try {
+                      const currentUser = auth.currentUser;
+                      if (!currentUser || !currentUser.email) {
+                        throw new Error("No user logged in");
+                      }
+
+                      // Show loading state
+                      Alert.alert(
+                        "Deleting Account",
+                        "Please wait while we delete your account...",
+                        [{ text: "OK" }],
+                        { cancelable: false }
+                      );
+
+                      // Reauthenticate user
+                      const credential = EmailAuthProvider.credential(
+                        currentUser.email,
+                        password
+                      );
+                      await reauthenticateWithCredential(
+                        currentUser,
+                        credential
+                      );
+
+                      // Delete user data from AsyncStorage
+                      await AsyncStorage.multiRemove([
+                        "@privacy_mode",
+                        "@biometric_enabled",
+                        "@passcode_enabled",
+                        "@notification_preferences",
+                      ]);
+
+                      // Delete the user account using the auth instance
+                      await deleteUser(currentUser);
+
+                      // Logout and navigate to login
+                      await logout();
+                      navigation.navigate("Login" as never);
+                    } catch (error: any) {
+                      console.error("Error deleting account:", error);
+                      let errorMessage = "Failed to delete account. ";
+
+                      if (error.code === "auth/wrong-password") {
+                        errorMessage += "Incorrect password.";
+                      } else if (error.code === "auth/requires-recent-login") {
+                        errorMessage +=
+                          "Please log out and log in again before deleting your account.";
+                      } else if (error.code === "auth/network-request-failed") {
+                        errorMessage +=
+                          "Network error. Please check your connection.";
+                      } else {
+                        errorMessage += "Please try again later.";
+                      }
+
+                      Alert.alert("Error", errorMessage);
+                    }
+                  },
+                },
+              ],
+              "secure-text"
+            );
           },
         },
       ]
@@ -102,13 +182,40 @@ const SettingsModal: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigation.goBack();
-    } catch (error) {
-      console.error("Logout failed:", error);
-      Alert.alert("Logout Failed", "Could not log out. Please try again.");
-    }
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            // Reset biometric and security settings
+            await Promise.all([
+              setBiometricEnabled(false),
+              setPrivacyMode("off"),
+              AsyncStorage.multiRemove([
+                "@biometric_enabled",
+                "@privacy_mode",
+                "@passcode_enabled",
+              ]),
+            ]);
+
+            // Perform logout
+            await logout();
+            navigation.navigate("Login" as never);
+          } catch (error) {
+            console.error("Error during logout:", error);
+            Alert.alert(
+              "Error",
+              "Failed to logout properly. Please try again."
+            );
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -223,13 +330,39 @@ const SettingsModal: React.FC = () => {
           </StyledView>
         </StyledView>
 
-        <StyledTouchableOpacity
-          className="w-full p-4 bg-danger rounded-lg mt-4"
-          onPress={handleLogout}
-        >
-          <StyledText className="text-white text-lg font-semibold text-center">
-            Logout
+        {/* Delete Account Section */}
+        <StyledView className="mt-8 mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <StyledText className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+            Danger Zone
           </StyledText>
+          <StyledText className="text-sm text-red-700 dark:text-red-300 mb-4">
+            Once you delete your account, there is no going back. Please be
+            certain.
+          </StyledText>
+          <StyledTouchableOpacity
+            onPress={handleDeleteAccount}
+            className="bg-red-600 dark:bg-red-700 p-3 rounded-lg"
+          >
+            <StyledView className="flex-row items-center justify-center">
+              <Ionicons name="trash-outline" size={20} color="white" />
+              <StyledText className="text-white font-semibold ml-2">
+                Delete Account
+              </StyledText>
+            </StyledView>
+          </StyledTouchableOpacity>
+        </StyledView>
+
+        {/* Logout Button */}
+        <StyledTouchableOpacity
+          onPress={handleLogout}
+          className="mb-6 p-3 bg-gray-200 dark:bg-gray-700 rounded-lg"
+        >
+          <StyledView className="flex-row items-center justify-center">
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <StyledText className="text-red-500 font-semibold ml-2">
+              Logout
+            </StyledText>
+          </StyledView>
         </StyledTouchableOpacity>
       </StyledScrollView>
     </StyledKeyboardAvoidingView>

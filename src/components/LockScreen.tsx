@@ -23,8 +23,7 @@ type LockScreenProps = RootStackScreenProps<"Lock">;
 
 export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
   const { onUnlock, onShowPasscode } = route.params;
-  const { user } = useAuthStore();
-  const { isBiometricEnabled, isPasscodeEnabled } = useSettingsStore();
+  const { isBiometricEnabled } = useSettingsStore();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState<
@@ -85,8 +84,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock your portfolio",
-        fallbackLabel: isPasscodeEnabled ? "Use Passcode" : "",
-        disableDeviceFallback: !isPasscodeEnabled,
         cancelLabel: "Cancel",
       });
 
@@ -94,8 +91,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
 
       if (result.success) {
         onUnlock();
-      } else if (result.error === "user_fallback" && isPasscodeEnabled) {
-        onShowPasscode();
       } else if (result.error === "user_cancel") {
         // Only show error message if this is a retry attempt
         if (hasAttemptedAuth) {
@@ -167,18 +162,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
             </StyledView>
           </StyledTouchableOpacity>
         )}
-        {isPasscodeEnabled && (
-          <StyledTouchableOpacity
-            onPress={onShowPasscode}
-            className="mt-4 rounded-lg border border-gray-600"
-          >
-            <StyledView className="p-3">
-              <StyledText className="text-gray-300 font-semibold text-center">
-                Use Passcode
-              </StyledText>
-            </StyledView>
-          </StyledTouchableOpacity>
-        )}
       </StyledView>
     );
   }
@@ -216,27 +199,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ route }) => {
           className="text-gray-400 mt-4 text-center"
         >
           Biometric authentication is available but not enabled in settings.
-        </StyledText>
-      )}
-      {isPasscodeEnabled && (!isBiometricAvailable || !isBiometricEnabled) && (
-        <StyledTouchableOpacity
-          onPress={onShowPasscode}
-          className="mt-4 rounded-lg border border-gray-600"
-        >
-          <StyledView className="p-3">
-            <StyledText className="text-gray-300 font-semibold text-center">
-              Use Passcode
-            </StyledText>
-          </StyledView>
-        </StyledTouchableOpacity>
-      )}
-      {!isBiometricAvailable && !isPasscodeEnabled && (
-        <StyledText
-          style={styles.message}
-          className="text-gray-400 mt-4 text-center"
-        >
-          No authentication method is enabled. Please enable Biometric or
-          Passcode in Settings.
         </StyledText>
       )}
     </StyledView>

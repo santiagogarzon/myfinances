@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
+import Constants from 'expo-constants';
 
 export type PrivacyMode = 'off' | 'on_app_close' | 'on_app_background';
 
@@ -13,7 +14,6 @@ export interface NotificationPreferences {
 export interface SettingsState {
   privacyMode: PrivacyMode;
   isBiometricEnabled: boolean;
-  isPasscodeEnabled: boolean;
   isPrivacyModeEnabled: boolean; // Computed property
   notificationPreferences: NotificationPreferences;
   setPrivacyMode: (mode: PrivacyMode) => Promise<void>;
@@ -32,7 +32,6 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   privacyMode: 'off',
   isBiometricEnabled: false,
-  isPasscodeEnabled: false,
   notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
   get isPrivacyModeEnabled() {
     return get().privacyMode !== 'off';
@@ -50,19 +49,30 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setBiometricEnabled: async (enabled: boolean) => {
     try {
+      console.log("SettingsStore: Setting biometric enabled to:", enabled);
+      
       if (enabled) {
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         
+        console.log("SettingsStore: Biometric availability check:", {
+          hasHardware,
+          isEnrolled,
+          isSimulator: Constants.appOwnership === "expo"
+        });
+        
         if (!hasHardware || !isEnrolled) {
+          console.log("SettingsStore: Biometric not available, throwing error");
           throw new Error('Biometric authentication is not available on this device');
         }
       }
       
       await AsyncStorage.setItem('@biometric_enabled', enabled.toString());
+      console.log("SettingsStore: Biometric setting saved to storage");
       set({ isBiometricEnabled: enabled });
+      console.log("SettingsStore: Biometric state updated in store");
     } catch (error) {
-      console.error('Error saving biometric setting:', error);
+      console.error('SettingsStore: Error saving biometric setting:', error);
       throw error;
     }
   },
@@ -91,6 +101,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   loadSettings: async () => {
     try {
+      console.log("SettingsStore: Loading settings...");
       const [privacyMode, biometricEnabled, passcodeEnabled, notificationPrefs] = await Promise.all([
         AsyncStorage.getItem('@privacy_mode'),
         AsyncStorage.getItem('@biometric_enabled'),
@@ -98,14 +109,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         AsyncStorage.getItem('@notification_preferences'),
       ]);
 
-      set({
+      console.log("SettingsStore: Loaded raw settings:", {
+        privacyMode,
+        biometricEnabled,
+        passcodeEnabled,
+        hasNotificationPrefs: !!notificationPrefs
+      });
+
+      const parsedSettings = {
         privacyMode: (privacyMode as PrivacyMode) || 'off',
         isBiometricEnabled: biometricEnabled === 'true',
-        isPasscodeEnabled: passcodeEnabled === 'true',
         notificationPreferences: notificationPrefs ? JSON.parse(notificationPrefs) : DEFAULT_NOTIFICATION_PREFERENCES,
-      });
+      };
+
+      console.log("SettingsStore: Parsed settings:", parsedSettings);
+      
+      set(parsedSettings);
+      console.log("SettingsStore: Settings state updated in store");
     } catch (error) {
-      console.error('Error loading settings:', error);
+      console.error('SettingsStore: Error loading settings:', error);
       throw error;
     }
   },
