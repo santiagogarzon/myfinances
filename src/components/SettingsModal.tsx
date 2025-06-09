@@ -224,7 +224,7 @@ const SettingsModal: React.FC = () => {
       style={{ flex: 1 }}
     >
       <StyledScrollView className="flex-1 p-4 bg-gray-100 dark:bg-gray-900">
-        {isBiometricAvailable && (
+        {/* {isBiometricAvailable && (
           <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
             <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">
               Security
@@ -252,7 +252,7 @@ const SettingsModal: React.FC = () => {
               </StyledText>
             </StyledTouchableOpacity>
           </StyledView>
-        )}
+        )} */}
 
         <StyledView className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
           <StyledText className="text-lg font-semibold text-dark dark:text-white mb-3">
